@@ -1,0 +1,34 @@
+name: Publish
+on:
+  workflow_dispatch:
+    inputs:
+      node_version:
+        description: "Node.js version to use for the release"
+        required: true
+        default: latest
+        type: string
+  push:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: make all
+      - run: |
+          if [[ "${{ github.event.inputs.node_version }}" == "latest" ]]; then
+            VERSION="$(curl -sL https://api.github.com/repos/nodejs/node/releases | grep tag_name | cut -d '"' -f 4 | sort -V | tail -n 1)"
+            echo "Version: ${VERSION}"
+            make all VERSION="$VERSION"
+          elif [[ "${{ github.event.inputs.node_version }}" != "" ]]; then
+            echo "Version: ${{ github.event.inputs.node_version }}"
+            make all VERSION="${{ github.event.inputs.node_version }}"
+          else
+            make all
+          fi
+      - uses: softprops/action-gh-release@v1
+        with:
+          name: Node pre build binaries
+          tag_name: "node_${{ github.run_id }}"
+          body: "Node pre build binaries"
+          files: "*.deb"

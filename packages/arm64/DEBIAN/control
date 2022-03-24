@@ -1,0 +1,21 @@
+Package: nodejs
+Version: 0.0.1beta
+Architecture: arm64
+Maintainer: Matheus Sampaio Queiroga <srherobrine20@gmail.com>
+Depends: libc6 (>= 2.17), libgcc1 (>= 1:4.2), libstdc++6 (>= 4.8), python3-minimal, ca-certificates
+Conflicts: nodejs-dev, nodejs-doc, nodejs-legacy, npm
+Replaces: nodejs-dev (<= 0.8.22), nodejs-legacy, npm (<= 1.2.14)
+Provides: nodejs-dev, nodejs-doc, nodejs-legacy, npm
+Section: web
+Priority: optional
+Homepage: https://nodejs.org
+Description: Node.js event-based server-side javascript engine
+ Node.js is similar in design to and influenced by systems like
+ Ruby's Event Machine or Python's Twisted.
+ .
+ It takes the event model a bit further - it presents the event
+ loop as a language construct instead of as a library.
+ .
+ Node.js is bundled with several useful libraries to handle server tasks :
+ System, Events, Standard I/O, Modules, Timers, Child Processes, POSIX,
+ HTTP, Multipart Parsing, TCP, DNS, Assert, Path, URL, Query Strings.
