@@ -7,6 +7,10 @@ update_version:
 clean:
 	rm -fr packages/*/usr tmp/ node*.tar.gz *.deb
 
+gh_release:
+	gh release create ${VERSION}
+        gh release upload ${VERSION} *.deb --clobber
+
 amd64:
 	wget 'https://nodejs.org/download/release/v${VERSION}/node-v${VERSION}-linux-x64.tar.gz' -O node.tar.gz
 	if [ -d 'tmp/' ];then rm -fr tmp/; fi
