@@ -9,7 +9,7 @@ clean:
 
 gh_release:
 	gh release create ${VERSION}
-        gh release upload ${VERSION} *.deb --clobber
+	gh release upload ${VERSION} *.deb --clobber
 
 amd64:
 	wget 'https://nodejs.org/download/release/v${VERSION}/node-v${VERSION}-linux-x64.tar.gz' -O node.tar.gz
