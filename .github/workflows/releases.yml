@@ -14,7 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - run: make all
       - run: |
           if [[ "${{ github.event.inputs.node_version }}" == "latest" ]]; then
             make all VERSION=$(curl -sL https://api.github.com/repos/nodejs/node/releases | grep tag_name | cut -d '"' -f 4 | sort -V | tail -n 1 | sed 's|v||g')
