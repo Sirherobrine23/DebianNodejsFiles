@@ -17,7 +17,7 @@ jobs:
       - run: make all
       - run: |
           if [[ "${{ github.event.inputs.node_version }}" == "latest" ]]; then
-            VERSION="$(curl -sL https://api.github.com/repos/nodejs/node/releases | grep tag_name | cut -d '"' -f 4 | sort -V | tail -n 1)"
+            VERSION="$(curl -sL https://api.github.com/repos/nodejs/node/releases | grep tag_name | cut -d '"' -f 4 | sort -V | tail -n 1 | sed 's|v||g')"
             echo "Version: ${VERSION}"
             make all VERSION="$VERSION"
           elif [[ "${{ github.event.inputs.node_version }}" != "" ]]; then
