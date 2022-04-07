@@ -155,7 +155,7 @@ httpRequest.getGithubTags("nodejs", "node").then(data => data.map(a => a.ref.rep
     for (const arch of archs) {
       while (true) {
         if (data.length <= 0) break;
-        const toRemove = 40;
+        const toRemove = 30;
         const versions = data.slice(0, toRemove);
         data = data.slice(toRemove);
         versions.forEach(version => console.log("Nodejs:", version));
