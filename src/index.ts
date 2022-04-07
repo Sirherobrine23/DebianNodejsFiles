@@ -102,13 +102,14 @@ async function createDeb(VERSION: string, debArch: string, tmpExtract) {
 
 const archs = [];
 httpRequest.getGithubTags("nodejs", "node").then(data => data.map(a => a.ref.replace(/refs\/tags\/heads\/tags\/v|refs\/tags\/v/, "")).reverse()).then(async data => {
+  data = data.slice(0, 120);
   if (args.arch === "all") archs.push("amd64", "arm64", "armhf", "ppc64el", "s390x"); else archs.push(args.arch);
   // Versions
   if (args.node_version === "all") {
     for (const arch of archs) {
       while (true) {
         if (data.length <= 0) break;
-        const toRemove = os.freemem() % 61;
+        const toRemove = os.freemem() % 62;
         const versions = data.slice(0, toRemove);
         data = data.slice(toRemove);
         const { binTar, deb } = archFind.find(a => a.deb === arch);
