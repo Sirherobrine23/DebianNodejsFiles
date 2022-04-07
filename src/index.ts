@@ -21,17 +21,19 @@ const args = yargs(process.argv.slice(2)).options("arch", {
 const archFind = [{deb: "amd64", binTar: "x64"}, {deb: "arm64", binTar: "arm64"}, {deb: "armhf", binTar: ""}, {deb: "ppc64el", binTar: ""}, {deb: "s390x", binTar: ""}]
 async function createDeb(VERSION: string, TargetArch: string) {
   const { binTar, deb } = archFind.find(a => a.deb === TargetArch);
-  const tarGzBuffer = await httpRequest.getBuffer(`https://nodejs.org/download/release/v${VERSION}/node-v${VERSION}-linux-${binTar}.tar.gz`);
+  const debFilePath = path.join(process.cwd(), `nodejs_${VERSION}_${deb}.deb`);
+  if (fs.existsSync(debFilePath)) return debFilePath;
   const storageRoot = path.resolve(process.cwd(), "packages", deb, VERSION);
+  const tarPath = path.join(storageRoot, `node-v${VERSION}-linux-${binTar}.tar.gz`);
+  const tmpExtract = path.join(storageRoot, "tmp");
+  const usrPath = path.join(storageRoot, "usr");
+  const debianPath = path.join(storageRoot, "DEBIAN");
   if (fs.existsSync(storageRoot)) {
     fs.rmSync(storageRoot, {recursive: true, force: true});
     fs.mkdirSync(storageRoot, {recursive: true});
   } else fs.mkdirSync(storageRoot, {recursive: true});
-  const tarPath = path.join(storageRoot, `node-v${VERSION}-linux-${binTar}.tar.gz`);
-  fs.writeFileSync(tarPath, tarGzBuffer);
-  const tmpExtract = path.join(storageRoot, "tmp");
+  fs.writeFileSync(tarPath, await httpRequest.getBuffer(`https://nodejs.org/download/release/v${VERSION}/node-v${VERSION}-linux-${binTar}.tar.gz`));
   if (!fs.existsSync(tmpExtract)) fs.mkdirSync(tmpExtract, {recursive: true});
-  const usrPath = path.join(storageRoot, "usr");
   if (!fs.existsSync(usrPath)) fs.mkdirSync(usrPath, {recursive: true});
   await tar.x({
     file: tarPath,
@@ -47,7 +49,6 @@ async function createDeb(VERSION: string, TargetArch: string) {
   });
   fs.rmSync(tmpExtract, {recursive: true, force: true});
   // Create DEBIAN folder
-  const debianPath = path.join(storageRoot, "DEBIAN");
   if (!fs.existsSync(debianPath)) fs.mkdirSync(debianPath, {recursive: true});
   // Create control file
   const controlFile = createDebConfig({
@@ -135,8 +136,11 @@ async function createDeb(VERSION: string, TargetArch: string) {
     ]
   });
   fs.writeFileSync(path.join(debianPath, "control"), controlFile);
-  const debFilePath = path.join(process.cwd(), `nodejs_${VERSION}_${deb}.deb`);
-  child_process.execFileSync("dpkg-deb", ["--build", "--verbose", ".", debFilePath], {stdio: "inherit", cwd: storageRoot});
+  await new Promise((res, rej) => {
+    const proc = child_process.execFile("dpkg-deb", ["--build", "--verbose", ".", debFilePath], {cwd: storageRoot}, err => err ? rej(err) : res(null));
+    proc.stdout.on("data", data => process.stdout.write(data));
+    proc.stderr.on("data", data => process.stderr.write(data));
+  });
   fs.rmSync(storageRoot, {recursive: true, force: true});
   return debFilePath;
 }
@@ -149,7 +153,15 @@ httpRequest.getGithubTags("nodejs", "node").then(data => data.map(a => a.ref.rep
     for (const arch of archs) await createDeb(data[0], arch).catch(err => console.log(err));
   } else if (args.node_version === "all") {
     for (const arch of archs) {
-      for (const version of data) await createDeb(version, arch).catch(err => console.log(err));
+      while (true) {
+        if (data.length <= 0) break;
+        const versions = [
+          data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(),
+          data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(),
+        ];
+        versions.forEach(version => console.log("Nodejs:", version));
+        await Promise.all(versions.map(version => createDeb(version, arch).catch(err => console.log(err))));
+      }
     }
   } else await createDeb(args.node_version, args.arch);
 });

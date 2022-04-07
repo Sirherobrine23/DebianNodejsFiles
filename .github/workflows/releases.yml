@@ -18,15 +18,17 @@ jobs:
         with:
           node-version: 16.x
       - run: npm install
-      - run: |
+      - name: Build packages
+        run: |
           if [[ "${{ github.event.inputs.node_version }}" == "latest" ]]; then
             npm run start -- -n latest -a all
           else
             npm run start -- -n all -a all
           fi
-      - uses: softprops/action-gh-release@v1
+      - name: Upload debs
+        uses: softprops/action-gh-release@v1
         with:
           name: Node pre build binaries
-          tag_name: "node_${{ github.run_id }}"
-          body: "Node pre build binaries"
+          tag_name: "nodejs"
+          body: "Action ID: ${{ github.run_id }}"
           files: "*.deb"
