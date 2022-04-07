@@ -1,6 +1,5 @@
 import fs from "fs";
 import path from "path";
-import os from "os";
 import child_process from "child_process";
 import yargs from "yargs";
 import tar from "tar";
@@ -132,7 +131,7 @@ if (!!args.ci) {
       for (const arch of archs) {
         while (true) {
           if (data.length <= 0) break;
-          const toRemove = os.freemem() % 62;
+          const toRemove = 5;
           const versions = data.slice(0, toRemove);
           data = data.slice(toRemove);
           const { binTar, deb } = archFind.find(a => a.deb === arch);
