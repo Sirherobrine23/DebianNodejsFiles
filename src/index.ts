@@ -145,7 +145,11 @@ const archs = [];
 httpRequest.getGithubTags("nodejs", "node").then(data => data.map(a => a.ref.replace(/refs\/tags\/heads\/tags\/v|refs\/tags\/v/, "")).reverse()).then(async data => {
   if (args.arch === "all") archs.push("amd64", "arm64", "armhf", "ppc64el", "s390x"); else archs.push(args.arch);
   // Versions
-  if (args.node_version === "latest") await Promise.all(archs.map(a => createDeb(data[0], a).catch(err => console.log(err))));
-  else if (args.node_version === "all") await Promise.all(data.map(a => archs.map(b => createDeb(a, b).catch(err => console.log(err)))));
-  else await createDeb(args.node_version, args.arch);
+  if (args.node_version === "latest") {
+    for (const arch of archs) await createDeb(data[0], arch).catch(err => console.log(err));
+  } else if (args.node_version === "all") {
+    for (const arch of archs) {
+      for (const version of data) await createDeb(version, arch).catch(err => console.log(err));
+    }
+  } else await createDeb(args.node_version, args.arch);
 });
