@@ -14,13 +14,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - uses: actions/setup-node@v1
+        with:
+          node-version: lts.x
+      - run: npm install
       - run: |
           if [[ "${{ github.event.inputs.node_version }}" == "latest" ]]; then
-            make all VERSION=$(curl -sL https://api.github.com/repos/nodejs/node/releases | grep tag_name | cut -d '"' -f 4 | sort -V | tail -n 1 | sed 's|v||g')
-          elif [[ "${{ github.event.inputs.node_version }}" != "" ]]; then
-            make all VERSION=${{ github.event.inputs.node_version }}
+            npm run start -- -n latest -a all
           else
-            make all
+            npm run start -- -n all -a all
           fi
       - uses: softprops/action-gh-release@v1
         with:

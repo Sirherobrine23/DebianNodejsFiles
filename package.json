@@ -1,0 +1,31 @@
+{
+  "name": "debiannodejsfiles",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "tsc",
+    "start": "ts-node src/index.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sirherobrine23/DebianNodejsFiles.git"
+  },
+  "author": "Sirherobrine23",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Sirherobrine23/DebianNodejsFiles/issues"
+  },
+  "homepage": "https://github.com/Sirherobrine23/DebianNodejsFiles#readme",
+  "dependencies": {
+    "axios": "^0.26.1",
+    "tar": "^6.1.11",
+    "ts-node": "^10.7.0",
+    "typescript": "^4.6.3",
+    "yargs": "^17.4.0"
+  },
+  "devDependencies": {
+    "@types/tar": "^6.1.1",
+    "@types/yargs": "^17.0.10"
+  }
+}

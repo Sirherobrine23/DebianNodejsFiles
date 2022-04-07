@@ -1,4 +1,6 @@
+node_modules/
+dist/
 *.tar.gz
 *.deb
-packages/*/usr/
+packages/
 tmp/
