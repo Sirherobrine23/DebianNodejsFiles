@@ -3,4 +3,4 @@ dist/
 *.tar.gz
 *.deb
 packages/
-tmp/
+*tmp/

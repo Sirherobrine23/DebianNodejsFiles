@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import os from "os";
 import child_process from "child_process";
 import yargs from "yargs";
 import tar from "tar";
@@ -17,123 +18,77 @@ const args = yargs(process.argv.slice(2)).options("arch", {
   default: "latest",
   alias: "n",
 }).version(false).parseSync();
-
 const archFind = [{deb: "amd64", binTar: "x64"}, {deb: "arm64", binTar: "arm64"}, {deb: "armhf", binTar: ""}, {deb: "ppc64el", binTar: ""}, {deb: "s390x", binTar: ""}]
-async function createDeb(VERSION: string, TargetArch: string) {
-  const { binTar, deb } = archFind.find(a => a.deb === TargetArch);
-  const debFilePath = path.join(process.cwd(), `nodejs_${VERSION}_${deb}.deb`);
-  if (fs.existsSync(debFilePath)) return debFilePath;
-  const storageRoot = path.resolve(process.cwd(), "packages", deb, VERSION);
-  const tarPath = path.join(storageRoot, `node-v${VERSION}-linux-${binTar}.tar.gz`);
-  const tmpExtract = path.join(storageRoot, "tmp");
-  const usrPath = path.join(storageRoot, "usr");
-  const debianPath = path.join(storageRoot, "DEBIAN");
-  if (fs.existsSync(storageRoot)) {
-    fs.rmSync(storageRoot, {recursive: true, force: true});
-    fs.mkdirSync(storageRoot, {recursive: true});
-  } else fs.mkdirSync(storageRoot, {recursive: true});
-  fs.writeFileSync(tarPath, await httpRequest.getBuffer(`https://nodejs.org/download/release/v${VERSION}/node-v${VERSION}-linux-${binTar}.tar.gz`));
-  if (!fs.existsSync(tmpExtract)) fs.mkdirSync(tmpExtract, {recursive: true});
-  if (!fs.existsSync(usrPath)) fs.mkdirSync(usrPath, {recursive: true});
+const tmpPath = path.resolve(process.cwd(), "nodejs_tmp");
+if (fs.existsSync(tmpPath)) {
+  fs.rmSync(tmpPath, {recursive: true, force: true});
+  fs.mkdirSync(tmpPath, {recursive: true});
+} else fs.mkdirSync(tmpPath, {recursive: true});
+
+async function downloadTar(Version: string, arch: string) {
+  console.log("Downloading tar to arch: %s, version: %s", arch, Version);
+  const tarRoot = path.resolve(tmpPath, "tar_gz");
+  if (fs.existsSync(tarRoot)) {
+    fs.rmSync(tarRoot, {recursive: true, force: true});
+    fs.mkdirSync(tarRoot, {recursive: true});
+  } else fs.mkdirSync(tarRoot, {recursive: true});
+  const tarPath = path.join(tarRoot, `node-v${Version}-linux-${arch}.tar.gz`);
+  fs.writeFileSync(tarPath, await httpRequest.getBuffer(`https://nodejs.org/download/release/v${Version}/node-v${Version}-linux-${arch}.tar.gz`));
+  return {tarPath, Version, arch};
+}
+
+async function extractTar(tarFile: string, to: string) {
+  console.log("Extracting tar: %s, to: %s", tarFile, to);
+  if (fs.existsSync(to)) {
+    await fs.promises.rm(to, {recursive: true, force: true});
+    await fs.promises.mkdir(to, {recursive: true});
+  } else await fs.promises.mkdir(to, {recursive: true});
   await tar.x({
-    file: tarPath,
+    file: tarFile,
     Directory: true,
-    cwd: path.join(storageRoot, "tmp"),
+    cwd: to
   });
-  fs.rmSync(tarPath);
+  await fs.promises.rm(tarFile);
+  return to;
+}
+
+async function createDeb(VERSION: string, debArch: string, tmpExtract) {
+  const debFilePath = path.join(process.cwd(), `nodejs_${VERSION}_${debArch}.deb`);
+  if (fs.existsSync(debFilePath)) return debFilePath;
+  const storageRoot = path.resolve(process.cwd(), "packages", debArch, VERSION);
+  if (fs.existsSync(storageRoot)) {
+    await fs.promises.rm(storageRoot, {recursive: true, force: true});
+    await fs.promises.mkdir(storageRoot, {recursive: true});
+  } else await fs.promises.mkdir(storageRoot, {recursive: true});
+  const usrPath = path.join(storageRoot, "usr");
+  if (fs.existsSync(usrPath)) {
+    await fs.promises.rm(usrPath, {recursive: true, force: true});
+    await fs.promises.mkdir(usrPath, {recursive: true});
+  } else await fs.promises.mkdir(usrPath, {recursive: true});
+  const debianPath = path.join(storageRoot, "DEBIAN");
   await new Promise(res => {
     for (const file of fs.readdirSync(path.resolve(tmpExtract, fs.readdirSync(tmpExtract)[0]))) {
       if (!/\.md|LICENSE/.test(file)) fs.renameSync(path.resolve(tmpExtract, fs.readdirSync(tmpExtract)[0], file), path.resolve(usrPath, file));
     }
     return res("");
   });
-  fs.rmSync(tmpExtract, {recursive: true, force: true});
+  await fs.promises.rm(tmpExtract, {recursive: true, force: true});
   // Create DEBIAN folder
   if (!fs.existsSync(debianPath)) fs.mkdirSync(debianPath, {recursive: true});
   // Create control file
   const controlFile = createDebConfig({
     packageName: "nodejs",
     Version: VERSION,
-    arch: deb as any,
+    arch: debArch as any,
     Maintainer: "Matheus Sampaio Queiroga <srherobrine20@gmail.com>",
     Section: "web",
     Priority: "optional",
     Homepage: "https://nodejs.org/en/",
-    Description: {
-      short: "Node.js event-based server-side javascript engine",
-      long: [
-        "Node.js is similar in design to and influenced by systems like",
-        "Ruby's Event Machine or Python's Twisted.",
-        ".",
-        "It takes the event model a bit further - it presents the event",
-        "loop as a language construct instead of as a library.",
-        ".",
-        "Node.js is bundled with several useful libraries to handle server tasks :",
-        "System, Events, Standard I/O, Modules, Timers, Child Processes, POSIX,",
-        "HTTP, Multipart Parsing, TCP, DNS, Assert, Path, URL, Query Strings."
-      ]
-    },
-    Depends: [
-      {
-        Package: "libc6",
-        minVersion: ">= 2.17",
-      },
-      {
-        Package: "libgcc1",
-        minVersion: ">= 1:4.2",
-      },
-      {
-        Package: "libstdc++6",
-        minVersion: ">= 4.8",
-      },
-      {
-        Package: "python3-minimal",
-      },
-      {
-        Package: "ca-certificates"
-      }
-    ],
-    Conflicts: [
-      {
-        Package: "nodejs-dev"
-      },
-      {
-        Package: "nodejs-doc"
-      },
-      {
-        Package: "nodejs-legacy"
-      },
-      {
-        Package: "npm"
-      }
-    ],
-    Replaces: [
-      {
-        Package: "nodejs-dev",
-        minVersion: "<= 0.8.22"
-      },
-      {
-        Package: "nodejs-legacy"
-      },
-      {
-        Package: " npm",
-        minVersion: "<= 1.2.14"
-      }
-    ],
-    Provides: [
-      {
-        Package: "nodejs-dev"
-      },
-      {
-        Package: "nodejs-doc"
-      },
-      {
-        Package: "nodejs-legacy"
-      },
-      {
-        Package: "npm"
-      }
-    ]
+    Description: {short: "Node.js event-based server-side javascript engine", long: ["Node.js is similar in design to and influenced by systems like", "Ruby's Event Machine or Python's Twisted.", ".", "It takes the event model a bit further - it presents the event", "loop as a language construct instead of as a library.", ".", "Node.js is bundled with several useful libraries to handle server tasks :", "System, Events, Standard I/O, Modules, Timers, Child Processes, POSIX,", "HTTP, Multipart Parsing, TCP, DNS, Assert, Path, URL, Query Strings."]},
+    Depends: [{Package: "libc6", minVersion: ">= 2.17"}, {Package: "libgcc1", minVersion: ">= 1:4.2"}, {Package: "libstdc++6", minVersion: ">= 4.8"}, {Package: "python3-minimal"}, {Package: "ca-certificates"}],
+    Conflicts: [{Package: "nodejs-dev"}, {Package: "nodejs-doc"}, {Package: "nodejs-legacy"}, {Package: "npm"}],
+    Replaces: [{Package: "nodejs-dev", minVersion: "<= 0.8.22"}, {Package: "nodejs-legacy"}, {Package: " npm", minVersion: "<= 1.2.14"}],
+    Provides: [{Package: "nodejs-dev"}, {Package: "nodejs-doc"}, {Package: "nodejs-legacy"}, {Package: "npm"}]
   });
   fs.writeFileSync(path.join(debianPath, "control"), controlFile);
   await new Promise((res, rej) => {
@@ -149,18 +104,16 @@ const archs = [];
 httpRequest.getGithubTags("nodejs", "node").then(data => data.map(a => a.ref.replace(/refs\/tags\/heads\/tags\/v|refs\/tags\/v/, "")).reverse()).then(async data => {
   if (args.arch === "all") archs.push("amd64", "arm64", "armhf", "ppc64el", "s390x"); else archs.push(args.arch);
   // Versions
-  if (args.node_version === "latest") {
-    for (const arch of archs) await createDeb(data[0], arch).catch(err => console.log(err));
-  } else if (args.node_version === "all") {
+  if (args.node_version === "all") {
     for (const arch of archs) {
       while (true) {
         if (data.length <= 0) break;
-        const toRemove = 30;
+        const toRemove = os.freemem() % 61;
         const versions = data.slice(0, toRemove);
         data = data.slice(toRemove);
-        versions.forEach(version => console.log("Nodejs:", version));
-        await Promise.all(versions.map(version => createDeb(version, arch).catch(err => err)));
+        const { binTar, deb } = archFind.find(a => a.deb === arch);
+        await Promise.all((await Promise.all(versions.map(version => downloadTar(version, binTar)))).map(ext => extractTar(ext.tarPath, path.join(tmpPath, `nodejs_${ext.Version}_${ext.arch}`)).then(to => createDeb(ext.Version, deb, to))));
       }
     }
-  } else await createDeb(args.node_version, args.arch);
+  }
 });
