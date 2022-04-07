@@ -1,13 +1,10 @@
 name: Publish
 on:
-  workflow_dispatch:
-    inputs:
-      node_version:
-        description: "Node.js version to use for the release"
-        required: true
-        default: latest
-        type: string
   push:
+    branches:
+      - main
+  schedule:
+    - cron: "0 0 * * *"
 
 jobs:
   publish:
@@ -19,16 +16,8 @@ jobs:
           node-version: 16.x
       - run: npm install
       - name: Build packages
+        env:
+          MAXREQ: "40"
         run: |
-          if [[ "${{ github.event.inputs.node_version }}" == "latest" ]]; then
-            npm run start -- -n latest -a all
-          else
-            npm run start -- -n all -a all
-          fi
-      - name: Upload debs
-        uses: softprops/action-gh-release@v1
-        with:
-          name: Node pre build binaries
-          tag_name: "nodejs"
-          body: "Action ID: ${{ github.run_id }}"
-          files: "*.deb"
+          npm run start -- -n all -a all
+          npm run start -- --ci "${{ secrets.GITHUB_TOKEN }}"

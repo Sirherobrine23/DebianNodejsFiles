@@ -7,7 +7,12 @@ import tar from "tar";
 import * as httpRequest from "./httpRequest";
 import createDebConfig from "./createDebConfig";
 
-const args = yargs(process.argv.slice(2)).options("arch", {
+const args = yargs(process.argv.slice(2)).option("ci", {
+  demandOption: true,
+  describe: "Upload to Github Releases",
+  default: "",
+  alias: "c",
+}).options("arch", {
   demandOption: true,
   describe: "The architecture of the package",
   default: "amd64",
@@ -33,7 +38,9 @@ async function downloadTar(Version: string, arch: string) {
     fs.mkdirSync(tarRoot, {recursive: true});
   } else fs.mkdirSync(tarRoot, {recursive: true});
   const tarPath = path.join(tarRoot, `node-v${Version}-linux-${arch}.tar.gz`);
-  fs.writeFileSync(tarPath, await httpRequest.getBuffer(`https://nodejs.org/download/release/v${Version}/node-v${Version}-linux-${arch}.tar.gz`));
+  const data = await httpRequest.getBuffer(`https://nodejs.org/download/release/v${Version}/node-v${Version}-linux-${arch}.tar.gz`).catch(err => err);
+  if (!Buffer.isBuffer(data)) return undefined;
+  fs.writeFileSync(tarPath, data);
   return {tarPath, Version, arch};
 }
 
@@ -100,21 +107,45 @@ async function createDeb(VERSION: string, debArch: string, tmpExtract) {
   return debFilePath;
 }
 
-const archs = [];
-httpRequest.getGithubTags("nodejs", "node").then(data => data.map(a => a.ref.replace(/refs\/tags\/heads\/tags\/v|refs\/tags\/v/, "")).reverse()).then(async data => {
-  data = data.slice(0, 120);
-  if (args.arch === "all") archs.push("amd64", "arm64", "armhf", "ppc64el", "s390x"); else archs.push(args.arch);
-  // Versions
-  if (args.node_version === "all") {
-    for (const arch of archs) {
-      while (true) {
-        if (data.length <= 0) break;
-        const toRemove = os.freemem() % 62;
-        const versions = data.slice(0, toRemove);
-        data = data.slice(toRemove);
-        const { binTar, deb } = archFind.find(a => a.deb === arch);
-        await Promise.all((await Promise.all(versions.map(version => downloadTar(version, binTar)))).map(ext => extractTar(ext.tarPath, path.join(tmpPath, `nodejs_${ext.Version}_${ext.arch}`)).then(to => createDeb(ext.Version, deb, to))));
+
+if (!!args.ci) {
+  (async () => {
+    for (const file of fs.readdirSync(process.cwd()).filter(a => /.*\.deb/.test(a))) {
+      const fileVersion = file.match(/nodejs_(.*)_.*\.deb/)[1];
+      await httpRequest.uploadRelease("Sirherobrine23", "DebianNodejsFiles", args.ci, fileVersion, fs.readFileSync(file), file).then(res => {
+        if (res !== undefined) console.log("Upload \"%s\" to Github Release, url: \"%s\"", file, res.browser_download_url);
+      }).catch(err => {
+        console.log(`Error on upload file "${file}", error:\n${err}`);
+        // console.log(err);
+      });
+    }
+  })()
+} else {
+  const archs = [];
+  httpRequest.getGithubTags("nodejs", "node").then(data => data.map(a => a.ref.replace(/refs\/tags\/heads\/tags\/v|refs\/tags\/v/, "")).reverse()).then(async data => {
+    const maxVersions = parseInt(process.env.MAXREQ||"40")||40;
+    data = data.slice(0, maxVersions);
+    if (args.arch === "all") archs.push("amd64", "arm64", "armhf", "ppc64el", "s390x"); else archs.push(args.arch);
+    const files = [];
+    // Versions
+    if (args.node_version === "all") {
+      for (const arch of archs) {
+        while (true) {
+          if (data.length <= 0) break;
+          const toRemove = os.freemem() % 62;
+          const versions = data.slice(0, toRemove);
+          data = data.slice(toRemove);
+          const { binTar, deb } = archFind.find(a => a.deb === arch);
+          const downloads = await (await Promise.all(versions.map(version => downloadTar(version, binTar)))).filter(a => !!a);
+          await Promise.all(downloads.map(ext => extractTar(ext.tarPath, path.join(tmpPath, `nodejs_${ext.Version}_${ext.arch}`)).then(async to => {
+            const file = await createDeb(ext.Version, deb, to);
+            return files.push({
+              ext,
+              filePath: file
+            });
+          })));
+        }
       }
     }
-  }
-});
+  });
+}
