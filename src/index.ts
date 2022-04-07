@@ -155,12 +155,11 @@ httpRequest.getGithubTags("nodejs", "node").then(data => data.map(a => a.ref.rep
     for (const arch of archs) {
       while (true) {
         if (data.length <= 0) break;
-        const versions = [
-          data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(),
-          data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(), data.shift(),
-        ];
+        const toRemove = 40;
+        const versions = data.slice(0, toRemove);
+        data = data.slice(toRemove);
         versions.forEach(version => console.log("Nodejs:", version));
-        await Promise.all(versions.map(version => createDeb(version, arch).catch(err => console.log(err))));
+        await Promise.all(versions.map(version => createDeb(version, arch).catch(err => err)));
       }
     }
   } else await createDeb(args.node_version, args.arch);
