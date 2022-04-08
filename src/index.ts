@@ -3,7 +3,7 @@ import path from "path";
 import child_process from "child_process";
 import yargs from "yargs";
 import tar from "tar";
-import * as httpRequest from "./httpRequest";
+import { getBuffer, uploadRelease, getGithubTags } from "./httpRequest";
 import createDebConfig from "./createDebConfig";
 
 const args = yargs(process.argv.slice(2)).option("ci", {
@@ -37,7 +37,7 @@ async function downloadTar(Version: string, arch: string) {
     fs.mkdirSync(tarRoot, {recursive: true});
   } else fs.mkdirSync(tarRoot, {recursive: true});
   const tarPath = path.join(tarRoot, `node-v${Version}-linux-${arch}.tar.gz`);
-  const data = await httpRequest.getBuffer(`https://nodejs.org/download/release/v${Version}/node-v${Version}-linux-${arch}.tar.gz`).catch(err => err);
+  const data = await getBuffer(`https://nodejs.org/download/release/v${Version}/node-v${Version}-linux-${arch}.tar.gz`).catch(err => err);
   if (!Buffer.isBuffer(data)) return undefined;
   fs.writeFileSync(tarPath, data);
   return {tarPath, Version, arch};
@@ -110,37 +110,33 @@ async function createDeb(VERSION: string, debArch: string, tmpExtract) {
 if (!!args.ci) {
   (async () => {
     for (const file of fs.readdirSync(process.cwd()).filter(a => /.*\.deb/.test(a))) {
-      const fileVersion = file.match(/nodejs_(.*)_.*\.deb/)[1];
-      await httpRequest.uploadRelease("Sirherobrine23", "DebianNodejsFiles", args.ci, fileVersion, fs.readFileSync(file), file).then(res => {
-        if (res !== undefined) console.log("Upload \"%s\" to Github Release, url: \"%s\"", file, res.browser_download_url);
-      }).catch(err => {
-        console.log(`Error on upload file "${file}", error:\n${err}`);
-        // console.log(err);
-      });
+      // const fileVersion = file.match(/nodejs_(.*)_.*\.deb/)[1];
+      await uploadRelease("Sirherobrine23", "DebianNodejsFiles", args.ci, "debs", fs.readFileSync(file), file).then(res => {
+        console.log("Uploaded \"%s\" to Github Release, url: \"%s\"", file, res.url);
+      }).catch(err => console.log(`Error on upload file "${file}", error:\n${err}`));
     }
   })()
 } else {
   const archs = [];
-  httpRequest.getGithubTags("nodejs", "node").then(data => data.map(a => a.ref.replace(/refs\/tags\/heads\/tags\/v|refs\/tags\/v/, "")).reverse()).then(async data => {
+  getGithubTags("nodejs", "node").then(data => data.map(a => a.ref.replace(/refs\/tags\/heads\/tags\/v|refs\/tags\/v/, "")).reverse()).then(async data => {
     const maxVersions = parseInt(process.env.MAXREQ||"40")||40;
     data = data.slice(0, maxVersions);
     if (args.arch === "all") archs.push("amd64", "arm64", "armhf", "ppc64el", "s390x"); else archs.push(args.arch);
-    const files = [];
     // Versions
     if (args.node_version === "all") {
-      for (const arch of archs) {
-          const toRemove = 5;
+      const toRemove = 5;
+      while (true) {
+        if (data.length <= 0) break;
+        for (const arch of archs) {
           const versions = data.slice(0, toRemove);
           const { binTar, deb } = archFind.find(a => a.deb === arch);
           const downloads = await (await Promise.all(versions.map(version => downloadTar(version, binTar)))).filter(a => !!a);
-          await Promise.all(downloads.map(ext => extractTar(ext.tarPath, path.join(tmpPath, `nodejs_${ext.Version}_${ext.arch}`)).then(async to => {
-            const file = await createDeb(ext.Version, deb, to);
-            return files.push({
-              ext,
-              filePath: file
-            });
-	  })));
-	data = data.filter(v => !versions.includes(v));
+          await Promise.all(downloads.map(ext => extractTar(ext.tarPath, path.join(tmpPath, `nodejs_${ext.Version}_${ext.arch}`)).then(to => createDeb(ext.Version, deb, to).then(deb => {
+            console.log(`Created "${deb}"`);
+            return deb;
+          }))));
+        }
+        data = data.slice(toRemove);
       }
     }
   });

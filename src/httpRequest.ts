@@ -1,6 +1,6 @@
 import axios from "axios";
 
-type githubRelease = {
+export type githubRelease = {
   url: string;
   assets_url: string;
   upload_url: string;
@@ -73,7 +73,7 @@ type githubRelease = {
   }>;
 };
 
-type githubUpload = {
+export type githubUpload = {
   url: string;
   browser_download_url: string;
   id: number;
@@ -126,7 +126,7 @@ export async function postFileBuffer(url: string, file: Buffer|Object, headers?:
   return Buffer.from(dataReponse.data);
 }
 
-export async function uploadRelease(Username: string, Repo: string, token: string, releaseName: string, file: Buffer, fileName: string): Promise<githubUpload|undefined> {
+export async function uploadRelease(Username: string, Repo: string, token: string, releaseName: string, file: Buffer, fileName: string): Promise<githubUpload|githubRelease|undefined> {
   let ifExistRelease: githubRelease = (await getGithubRelease(Username, Repo, token)).find(release => release.tag_name === releaseName);
   if (!ifExistRelease) {
     ifExistRelease = await postFileBuffer(`https://api.github.com/repos/${Username}/${Repo}/releases`, {
@@ -136,13 +136,23 @@ export async function uploadRelease(Username: string, Repo: string, token: strin
       prerelease: false,
     }, {
       Authorization: `token ${token}`
-    }).then(res => JSON.parse(res.toString("utf8"))) as githubRelease;
+    }).then(res => JSON.parse(res.toString("utf8"))[0]) as githubRelease;
   }
-  if (ifExistRelease.assets.find(asset => asset.name === fileName)) return undefined;
+  const fileExist = (await getGithubRelease(Username, Repo, token)).find(release => release.assets.find(asset => asset.name === fileName));
+  if (fileExist) return fileExist;
   const uploadDate: githubUpload = await postFileBuffer(`https://uploads.github.com/repos/${Username}/${Repo}/releases/${ifExistRelease.id}/assets?name=${fileName}`, file, {
     Authorization: `token ${token}`,
     "Content-Type": "application/octet-stream"
-  }).then(res => JSON.parse(res.toString("utf8")));
+  }).catch(() => postFileBuffer(`https://uploads.github.com/repos/${Username}/${Repo}/releases/${ifExistRelease.id}/assets?name=${fileName}`, file, {
+    Authorization: `token ${token}`,
+    "Content-Type": "application/octet-stream"
+  })).catch(() => postFileBuffer(`https://uploads.github.com/repos/${Username}/${Repo}/releases/${ifExistRelease.id}/assets?name=${fileName}`, file, {
+    Authorization: `token ${token}`,
+    "Content-Type": "application/octet-stream"
+  })).catch(() => postFileBuffer(`https://uploads.github.com/repos/${Username}/${Repo}/releases/${ifExistRelease.id}/assets?name=${fileName}`, file, {
+    Authorization: `token ${token}`,
+    "Content-Type": "application/octet-stream"
+  })).then(res => JSON.parse(res.toString("utf8")));
   return uploadDate;
 }
 
