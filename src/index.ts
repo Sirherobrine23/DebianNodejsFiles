@@ -129,11 +129,8 @@ if (!!args.ci) {
     // Versions
     if (args.node_version === "all") {
       for (const arch of archs) {
-        while (true) {
-          if (data.length <= 0) break;
           const toRemove = 5;
           const versions = data.slice(0, toRemove);
-          data = data.slice(toRemove);
           const { binTar, deb } = archFind.find(a => a.deb === arch);
           const downloads = await (await Promise.all(versions.map(version => downloadTar(version, binTar)))).filter(a => !!a);
           await Promise.all(downloads.map(ext => extractTar(ext.tarPath, path.join(tmpPath, `nodejs_${ext.Version}_${ext.arch}`)).then(async to => {
@@ -142,8 +139,8 @@ if (!!args.ci) {
               ext,
               filePath: file
             });
-          })));
-        }
+	  })));
+	data = data.filter(v => !versions.includes(v));
       }
     }
   });
