@@ -22,7 +22,13 @@ const args = yargs(process.argv.slice(2)).option("ci", {
   default: "latest",
   alias: "n",
 }).version(false).parseSync();
-const archFind = [{deb: "amd64", binTar: "x64"}, {deb: "arm64", binTar: "arm64"}, {deb: "armhf", binTar: ""}, {deb: "ppc64el", binTar: ""}, {deb: "s390x", binTar: ""}]
+const archFind = [
+  {deb: "amd64", binTar: "x64"},
+  {deb: "arm64", binTar: "arm64"},
+  {deb: "armhf", binTar: "armv7l"},
+  {deb: "ppc64el", binTar: "ppc64el"},
+  {deb: "s390x", binTar: "s390x"}
+];
 const tmpPath = path.resolve(process.cwd(), "nodejs_tmp");
 if (fs.existsSync(tmpPath)) {
   fs.rmSync(tmpPath, {recursive: true, force: true});
