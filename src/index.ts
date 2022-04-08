@@ -138,6 +138,11 @@ if (!!args.ci) {
         }
         data = data.slice(toRemove);
       }
+    } else {
+      await Promise.all(archs.map(arch => downloadTar(args.node_version, archFind.find(a => a.deb === arch).binTar).then(ext => extractTar(ext.tarPath, path.join(tmpPath, `nodejs_${ext.Version}_${ext.arch}`)).then(to => createDeb(ext.Version, archFind.find(a => a.deb === arch).deb, to).then(deb => {
+        console.log(`Created "${deb}"`);
+        return deb;
+      })).catch(err => console.log(`Error on create deb for "${args.node_version}", error:\n${err}`)))));
     }
   });
 }
