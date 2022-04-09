@@ -112,18 +112,13 @@ async function createDeb(VERSION: string, debArch: string, tmpExtract) {
   return debFilePath;
 }
 
+async function uploadRelease(file: string) {
+  return await uploadRelease("Sirherobrine23", "DebianNodejsFiles", args.ci, "debs", fs.readFileSync(file), path.parse(file).base).then(res => {
+    console.log("Uploaded \"%s\" to Github Release, url: \"%s\"", file, res.url);
+  }).catch(err => console.log(`Error on upload file "${file}", error:\n${err}`));
+}
 
-if (!!args.ci) {
-  (async () => {
-    for (const file of fs.readdirSync(process.cwd()).filter(a => /.*\.deb/.test(a))) {
-      // const fileVersion = file.match(/nodejs_(.*)_.*\.deb/)[1];
-      await uploadRelease("Sirherobrine23", "DebianNodejsFiles", args.ci, "debs", fs.readFileSync(file), file).then(res => {
-        console.log("Uploaded \"%s\" to Github Release, url: \"%s\"", file, res.url);
-      }).catch(err => console.log(`Error on upload file "${file}", error:\n${err}`));
-    }
-  })()
-} else {
-  const archs = [];
+const archs = [];
   getGithubTags("nodejs", "node").then(data => data.map(a => a.ref.replace(/refs\/tags\/heads\/tags\/v|refs\/tags\/v/, "")).reverse()).then(async data => {
     const maxVersions = parseInt(process.env.MAXREQ||"40")||40;
     data = data.slice(0, maxVersions);
@@ -139,7 +134,14 @@ if (!!args.ci) {
           const downloads = await (await Promise.all(versions.map(version => downloadTar(version, binTar)))).filter(a => !!a);
           await Promise.all(downloads.map(ext => extractTar(ext.tarPath, path.join(tmpPath, `nodejs_${ext.Version}_${ext.arch}`)).then(to => createDeb(ext.Version, deb, to).then(deb => {
             console.log(`Created "${deb}"`);
-            return deb;
+            if (!!args.ci) return {
+              data: await uploadRelease(deb),
+              file: deb
+            };
+            return {
+              data: undefined,
+              file: deb
+            };
           }))));
         }
         data = data.slice(toRemove);
@@ -151,4 +153,3 @@ if (!!args.ci) {
       })).catch(err => console.log(`Error on create deb for "${args.node_version}", error:\n${err}`)))));
     }
   });
-}
