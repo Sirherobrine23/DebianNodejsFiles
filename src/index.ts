@@ -132,7 +132,7 @@ const archs = [];
           const versions = data.slice(0, toRemove);
           const { binTar, deb } = archFind.find(a => a.deb === arch);
           const downloads = await (await Promise.all(versions.map(version => downloadTar(version, binTar)))).filter(a => !!a);
-          await Promise.all(downloads.map(ext => extractTar(ext.tarPath, path.join(tmpPath, `nodejs_${ext.Version}_${ext.arch}`)).then(to => createDeb(ext.Version, deb, to).then(deb => {
+          await Promise.all(downloads.map(ext => extractTar(ext.tarPath, path.join(tmpPath, `nodejs_${ext.Version}_${ext.arch}`)).then(to => createDeb(ext.Version, deb, to).then(async deb => {
             console.log(`Created "${deb}"`);
             if (!!args.ci) return {
               data: await uploadReleaseFile(deb),
