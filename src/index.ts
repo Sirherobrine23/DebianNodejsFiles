@@ -112,7 +112,7 @@ async function createDeb(VERSION: string, debArch: string, tmpExtract) {
   return debFilePath;
 }
 
-async function uploadRelease(file: string) {
+async function uploadReleaseFile(file: string) {
   return await uploadRelease("Sirherobrine23", "DebianNodejsFiles", args.ci, "debs", fs.readFileSync(file), path.parse(file).base).then(res => {
     console.log("Uploaded \"%s\" to Github Release, url: \"%s\"", file, res.url);
   }).catch(err => console.log(`Error on upload file "${file}", error:\n${err}`));
@@ -135,7 +135,7 @@ const archs = [];
           await Promise.all(downloads.map(ext => extractTar(ext.tarPath, path.join(tmpPath, `nodejs_${ext.Version}_${ext.arch}`)).then(to => createDeb(ext.Version, deb, to).then(deb => {
             console.log(`Created "${deb}"`);
             if (!!args.ci) return {
-              data: await uploadRelease(deb),
+              data: await uploadReleaseFile(deb),
               file: deb
             };
             return {
