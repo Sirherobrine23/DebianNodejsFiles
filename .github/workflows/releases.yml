@@ -19,6 +19,4 @@ jobs:
       - name: Build packages
         env:
           MAXREQ: "40"
-        run: |
-          npm run start -- -n all -a all
-          npm run start -- --ci "${{ secrets.GITHUB_TOKEN }}"
+        run: npm run start -- -n all -a all --ci "${{ secrets.GITHUB_TOKEN }}"
