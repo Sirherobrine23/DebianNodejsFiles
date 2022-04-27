@@ -95,9 +95,9 @@ async function createDeb(VERSION: string, debArch: string, tmpExtract) {
     Maintainer: "Matheus Sampaio Queiroga <srherobrine20@gmail.com>",
     Section: "web",
     Priority: "optional",
-    Homepage: "https://nodejs.org/en/",
+    Homepage: "https://nodejs.org/",
     Description: {short: "Node.js event-based server-side javascript engine", long: ["Node.js is similar in design to and influenced by systems like", "Ruby's Event Machine or Python's Twisted.", ".", "It takes the event model a bit further - it presents the event", "loop as a language construct instead of as a library.", ".", "Node.js is bundled with several useful libraries to handle server tasks :", "System, Events, Standard I/O, Modules, Timers, Child Processes, POSIX,", "HTTP, Multipart Parsing, TCP, DNS, Assert, Path, URL, Query Strings."]},
-    Depends: [{Package: "libc6", minVersion: ">= 2.17"}, {Package: "libgcc1", minVersion: ">= 1:4.2"}, {Package: "libstdc++6", minVersion: ">= 4.8"}, {Package: "python3-minimal"}, {Package: "ca-certificates"}],
+    Depends: [{Package: "libc6", minVersion: ">= 2.17"}, {Package: "libgcc1", minVersion: ">= 1:4.2"}, {Package: "libstdc++6", minVersion: ">= 4.8"}, {Package: "ca-certificates"}],
     Conflicts: [{Package: "nodejs-dev"}, {Package: "nodejs-doc"}, {Package: "nodejs-legacy"}, {Package: "npm"}],
     Replaces: [{Package: "nodejs-dev", minVersion: "<= 0.8.22"}, {Package: "nodejs-legacy"}, {Package: " npm", minVersion: "<= 1.2.14"}],
     Provides: [{Package: "nodejs-dev"}, {Package: "nodejs-doc"}, {Package: "nodejs-legacy"}, {Package: "npm"}]
