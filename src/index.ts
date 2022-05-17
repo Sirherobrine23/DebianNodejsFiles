@@ -125,7 +125,7 @@ const Yargs = yargs(process.argv.slice(2)).command("docker", "Build with Docker 
   const {arch, version, token} = yargs.option("arch", {
     demandOption: false,
     describe: "Architecture to build and create DEB file",
-    choices: ["amd64", "arm64", "armhf", "i386", "ppc64le", "s390x", "all"],
+    choices: [...(archFind.map(x => x.deb)), "all"],
     default: "all",
     type: "string"
   }).option("token", {
