@@ -140,13 +140,18 @@ export async function uploadRelease(Username: string, Repo: string, token: strin
   }
   const fileExist = (await getGithubRelease(Username, Repo, token)).find(release => release.assets.find(asset => asset.name === fileName))?.assets?.find(asset => asset.name === fileName);
   if (fileExist) {
+    console.log(`File ${fileName} already exist in release, deleting...`);
     // Delete file
-    await axios.delete(`https://api.github.com/repos/${Username}/${Repo}/releases/${ifExistRelease.id}/assets/${fileExist.id}`, {
+    await axios.delete(`https://api.github.com/repos/${Username}/${Repo}/releases/assets/${fileExist.id}`, {
       headers: {
         Authorization: `token ${token}`
       }
+    }).catch(err => {
+      console.log(err);
+      throw err;
     });
   }
+  console.log(`Uploading ${fileName}...`);
   const functionUpload = () => postFileBuffer(`https://uploads.github.com/repos/${Username}/${Repo}/releases/${ifExistRelease.id}/assets?name=${fileName}`, file, {
     Authorization: `token ${token}`,
     "Content-Type": "application/octet-stream"

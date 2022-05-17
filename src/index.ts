@@ -7,6 +7,8 @@ import { getBuffer, uploadRelease } from "./httpRequest";
 import createDebConfig from "./createDebConfig";
 
 const tmpPath = path.resolve(process.cwd(), "nodejs_tmp");
+if (fs.existsSync(tmpPath)) fs.rmSync(tmpPath, {recursive: true, force: true});
+fs.mkdirSync(tmpPath, {recursive: true});
 
 const archFind = [
   {deb: "amd64", binTar: "x64", dockerPlatform: "linux/amd64"},
@@ -16,11 +18,6 @@ const archFind = [
   {deb: "ppc64el", binTar: "ppc64el", dockerPlatform: "linux/ppc64le"},
   {deb: "s390x", binTar: "s390x", dockerPlatform: "linux/s390x"}
 ];
-
-if (fs.existsSync(tmpPath)) {
-  fs.rmSync(tmpPath, {recursive: true, force: true});
-  fs.mkdirSync(tmpPath, {recursive: true});
-} else fs.mkdirSync(tmpPath, {recursive: true});
 
 async function downloadTar(Version: string, arch: string) {
   console.log("Downloading tar to arch: %s, version: %s", arch, Version);
@@ -38,10 +35,8 @@ async function downloadTar(Version: string, arch: string) {
 
 async function extractTar(tarFile: string, to: string) {
   console.log("Extracting tar: %s, to: %s", tarFile, to);
-  if (fs.existsSync(to)) {
-    await fs.promises.rm(to, {recursive: true, force: true});
-    await fs.promises.mkdir(to, {recursive: true});
-  } else await fs.promises.mkdir(to, {recursive: true});
+  if (fs.existsSync(to)) await fs.promises.rm(to, {recursive: true, force: true});
+  await fs.promises.mkdir(to, {recursive: true});
   await tar.x({
     file: tarFile,
     Directory: true,
@@ -53,25 +48,14 @@ async function extractTar(tarFile: string, to: string) {
 
 async function createDeb(VERSION: string, debArch: string, tmpExtract: string) {
   const debFilePath = path.join(process.cwd(), `nodejs_${VERSION}_${debArch}.deb`);
-  if (fs.existsSync(debFilePath)) return debFilePath;
-  const storageRoot = path.resolve(process.cwd(), "packages", debArch, VERSION);
-  if (fs.existsSync(storageRoot)) {
-    await fs.promises.rm(storageRoot, {recursive: true, force: true});
-    await fs.promises.mkdir(storageRoot, {recursive: true});
-  } else await fs.promises.mkdir(storageRoot, {recursive: true});
+  const storageRoot = path.resolve(tmpPath, "packages", debArch, VERSION);
   const usrPath = path.join(storageRoot, "usr");
-  if (fs.existsSync(usrPath)) {
-    await fs.promises.rm(usrPath, {recursive: true, force: true});
-    await fs.promises.mkdir(usrPath, {recursive: true});
-  } else await fs.promises.mkdir(usrPath, {recursive: true});
   const debianPath = path.join(storageRoot, "DEBIAN");
-  await new Promise(async res => {
-    for (const file of fs.readdirSync(tmpExtract)) {
-      if (!/\.md|LICENSE/.test(file)) await fsPromise.rm(path.join(tmpExtract, file));
-      else await fsPromise.cp(path.join(tmpExtract, file), path.join(storageRoot, file), {recursive: true});
-    }
-    return res("");
-  });
+  if (fs.existsSync(debFilePath)) return debFilePath;
+  if (fs.existsSync(storageRoot)) await fs.promises.rm(storageRoot, {recursive: true, force: true});
+  await fs.promises.mkdir(storageRoot, {recursive: true});
+  await fs.promises.mkdir(usrPath, {recursive: true});
+  await fsPromise.cp(tmpExtract, usrPath, {recursive: true, force: true});
   await fs.promises.rm(tmpExtract, {recursive: true, force: true});
   // Create DEBIAN folder
   if (!fs.existsSync(debianPath)) fs.mkdirSync(debianPath, {recursive: true});
@@ -96,7 +80,7 @@ async function createDeb(VERSION: string, debArch: string, tmpExtract: string) {
     proc.stdout.on("data", data => process.stdout.write(data));
     proc.stderr.on("data", data => process.stderr.write(data));
   });
-  fs.rmSync(storageRoot, {recursive: true, force: true});
+  // fs.rmSync(storageRoot, {recursive: true, force: true});
   return debFilePath;
 }
 
@@ -120,7 +104,7 @@ const getNodeVersions = () => getBuffer("https://nodejs.org/dist/index.json").th
   security: boolean
 }>>;
 
-const Yargs = yargs(process.argv.slice(2)).command("docker", "Build with Docker and create DEB file", async yargs => {
+const Yargs = yargs(process.argv.slice(2)).command("clear", "Clear temp dir", () => fsPromise.rm(tmpPath, {recursive: true, force: true})).command("docker", "Build with Docker and create DEB file", async yargs => {
   const nodejsVersionsPrebuild = await getNodeVersions();
   const {arch, version, token} = yargs.option("arch", {
     demandOption: false,
@@ -146,7 +130,7 @@ const Yargs = yargs(process.argv.slice(2)).command("docker", "Build with Docker 
     console.log("Version not found");
     return;
   }
-  const archs = arch === "all" ? ["amd64", "arm64", "armhf", "i386", "ppc64le", "s390x"] : [arch];
+  const archs = arch === "all" ? archFind.map(x => x.deb) : [arch];
   for (const nodejsVersion of VersionsSearched.map(x => x.version)) {
     for (const arch of archs) {
       console.log("Building Node.js\nversion: %s\nto arch: %s\n\n", nodejsVersion, arch);
@@ -159,8 +143,7 @@ const Yargs = yargs(process.argv.slice(2)).command("docker", "Build with Docker 
       console.log("\n************\n");
       if (token) {
         console.log("Uploading to Github Releases and delete file");
-        await uploadReleaseFile(token, DebFilePath, `nodejs_${deb}.deb`, nodejsVersion);
-        console.log("Uploaded \"%s\" to Github Releases", DebFilePath);
+        await uploadReleaseFile(token, DebFilePath, `nodejs_${deb}.deb`, nodejsVersion).then(() => console.log("Uploaded \"%s\" to Github Releases", DebFilePath));
         await fsPromise.rm(DebFilePath);
       } else console.log("Path file: \"%s\"", DebFilePath);
       console.log("\n");
