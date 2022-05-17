@@ -1,46 +1,48 @@
 {
-    "name": "deb_archs",
-    "dockerFile": "Dockerfile",
-    "updateRemoteUserUID": false,
-    "build": {
-        "args": {
-            "USERNAME": "devcontainer"
-        }
-    },
-    "containerUser": "devcontainer",
-    "remoteUser": "devcontainer",
-    "postCreateCommand": "sudo screen -dm -L -Logfile /tmp/dockerd.log dockerd",
-    "runArgs": [
-      "--init",
-      "--privileged"
-    ],
-    "mounts": [
-      "source=sirherobrine23_debnode_dind,target=/var/lib/docker,type=volume"
-    ],
-    "extensions": [
-      "github.copilot",
-      "redhat.vscode-yaml",
-      "akamud.vscode-theme-onedark",
-      "hookyqr.beautify",
-      "aaron-bond.better-comments",
-      "wmaurer.change-case",
-      "oouo-diogo-perdigao.docthis",
-      "dbaeumer.vscode-eslint",
-      "me-dutour-mathieu.vscode-github-actions",
-      "benshabatnoam.google-translate-ext",
-      "oderwat.indent-rainbow",
-      "tgreen7.vs-code-node-require",
-      "eg2.vscode-npm-script",
-      "christian-kohler.npm-intellisense",
-      "ionutvmi.path-autocomplete",
-      "christian-kohler.path-intellisense",
-      "esbenp.prettier-vscode",
-      "rangav.vscode-thunder-client",
-      "visualstudioexptteam.vscodeintellicode",
-      "vscode-icons-team.vscode-icons",
-      "eamodio.gitlens",
-      "mongodb.mongodb-vscode",
-      "ms-azuretools.vscode-docker",
-      "chrmarti.regex"
-    ]
-  }
+	"name": "Node.js Debs",
+	"dockerFile": "Dockerfile",
+	"updateRemoteUserUID": false,
+	"overrideCommand": false,
+	"build": {
+		"args": {
+			"USERNAME": "devcontainer"
+		}
+	},
+	"containerUser": "devcontainer",
+	"remoteUser": "devcontainer",
+	"runArgs": [
+		"--init",
+		"--privileged"
+	],
+	"mounts": [
+		"target=/var/lib/docker,type=volume,source=sirherobrine23_debnode_dind"
+	],
+	"extensions": [
+		"github.copilot",
+		"redhat.vscode-yaml",
+		"akamud.vscode-theme-onedark",
+		"hookyqr.beautify",
+		"aaron-bond.better-comments",
+		"wmaurer.change-case",
+		"oouo-diogo-perdigao.docthis",
+		"dbaeumer.vscode-eslint",
+		"me-dutour-mathieu.vscode-github-actions",
+		"benshabatnoam.google-translate-ext",
+		"oderwat.indent-rainbow",
+		"tgreen7.vs-code-node-require",
+		"eg2.vscode-npm-script",
+		"christian-kohler.npm-intellisense",
+		"ionutvmi.path-autocomplete",
+		"christian-kohler.path-intellisense",
+		"esbenp.prettier-vscode",
+		"rangav.vscode-thunder-client",
+		"visualstudioexptteam.vscodeintellicode",
+		"vscode-icons-team.vscode-icons",
+		"eamodio.gitlens",
+		"mongodb.mongodb-vscode",
+		"ms-azuretools.vscode-docker",
+		"chrmarti.regex",
+		"quicktype.quicktype",
+		"euskadi31.json-pretty-printer"
+	]
+}

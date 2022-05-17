@@ -1,35 +1,22 @@
-import fs from "fs";
+import fs, {promises as fsPromise} from "fs";
 import path from "path";
 import child_process from "child_process";
 import yargs from "yargs";
 import tar from "tar";
-import { getBuffer, uploadRelease, getGithubTags } from "./httpRequest";
+import { getBuffer, uploadRelease } from "./httpRequest";
 import createDebConfig from "./createDebConfig";
 
-const args = yargs(process.argv.slice(2)).option("ci", {
-  demandOption: true,
-  describe: "Upload to Github Releases",
-  default: "",
-  alias: "c",
-}).options("arch", {
-  demandOption: true,
-  describe: "The architecture of the package",
-  default: "amd64",
-  alias: "a",
-}).option("node_version", {
-  demandOption: true,
-  describe: "The version of the package",
-  default: "latest",
-  alias: "n",
-}).version(false).parseSync();
-const archFind = [
-  {deb: "amd64", binTar: "x64"},
-  {deb: "arm64", binTar: "arm64"},
-  {deb: "armhf", binTar: "armv7l"},
-  {deb: "ppc64el", binTar: "ppc64el"},
-  {deb: "s390x", binTar: "s390x"}
-];
 const tmpPath = path.resolve(process.cwd(), "nodejs_tmp");
+
+const archFind = [
+  {deb: "amd64", binTar: "x64", dockerPlatform: "linux/amd64"},
+  {deb: "arm64", binTar: "arm64", dockerPlatform: "linux/arm64"},
+  {deb: "armhf", binTar: "armv7l", dockerPlatform: "linux/arm/v7"},
+  {deb: "armel", binTar: "armv6l", dockerPlatform: "linux/arm/v6"},
+  {deb: "ppc64el", binTar: "ppc64el", dockerPlatform: "linux/ppc64le"},
+  {deb: "s390x", binTar: "s390x", dockerPlatform: "linux/s390x"}
+];
+
 if (fs.existsSync(tmpPath)) {
   fs.rmSync(tmpPath, {recursive: true, force: true});
   fs.mkdirSync(tmpPath, {recursive: true});
@@ -64,7 +51,7 @@ async function extractTar(tarFile: string, to: string) {
   return to;
 }
 
-async function createDeb(VERSION: string, debArch: string, tmpExtract) {
+async function createDeb(VERSION: string, debArch: string, tmpExtract: string) {
   const debFilePath = path.join(process.cwd(), `nodejs_${VERSION}_${debArch}.deb`);
   if (fs.existsSync(debFilePath)) return debFilePath;
   const storageRoot = path.resolve(process.cwd(), "packages", debArch, VERSION);
@@ -78,9 +65,10 @@ async function createDeb(VERSION: string, debArch: string, tmpExtract) {
     await fs.promises.mkdir(usrPath, {recursive: true});
   } else await fs.promises.mkdir(usrPath, {recursive: true});
   const debianPath = path.join(storageRoot, "DEBIAN");
-  await new Promise(res => {
-    for (const file of fs.readdirSync(path.resolve(tmpExtract, fs.readdirSync(tmpExtract)[0]))) {
-      if (!/\.md|LICENSE/.test(file)) fs.renameSync(path.resolve(tmpExtract, fs.readdirSync(tmpExtract)[0], file), path.resolve(usrPath, file));
+  await new Promise(async res => {
+    for (const file of fs.readdirSync(tmpExtract)) {
+      if (!/\.md|LICENSE/.test(file)) await fsPromise.rm(path.join(tmpExtract, file));
+      else await fsPromise.cp(path.join(tmpExtract, file), path.join(storageRoot, file), {recursive: true});
     }
     return res("");
   });
@@ -90,7 +78,7 @@ async function createDeb(VERSION: string, debArch: string, tmpExtract) {
   // Create control file
   const controlFile = createDebConfig({
     packageName: "nodejs",
-    Version: VERSION,
+    Version: VERSION.replace(/[A-Za-z]+/, ""),
     arch: debArch as any,
     Maintainer: "Matheus Sampaio Queiroga <srherobrine20@gmail.com>",
     Section: "web",
@@ -112,44 +100,113 @@ async function createDeb(VERSION: string, debArch: string, tmpExtract) {
   return debFilePath;
 }
 
-async function uploadReleaseFile(file: string) {
-  return await uploadRelease("Sirherobrine23", "DebianNodejsFiles", args.ci, "debs", fs.readFileSync(file), path.parse(file).base).then(res => {
+async function uploadReleaseFile(Token: string, file: string, fileName: string, tagName?: string) {
+  return await uploadRelease("Sirherobrine23", "DebianNodejsFiles", Token, tagName?tagName:"debs", fs.readFileSync(file), fileName).then(res => {
     console.log("Uploaded \"%s\" to Github Release, url: \"%s\"", file, res.url);
   }).catch(err => console.log(`Error on upload file "${file}", error:\n${err}`));
 }
 
-const archs = [];
-  getGithubTags("nodejs", "node").then(data => data.map(a => a.ref.replace(/refs\/tags\/heads\/tags\/v|refs\/tags\/v/, "")).reverse()).then(async data => {
-    const maxVersions = parseInt(process.env.MAXREQ||"40")||40;
-    data = data.slice(0, maxVersions);
-    if (args.arch === "all") archs.push("amd64", "arm64", "armhf", "ppc64el", "s390x"); else archs.push(args.arch);
-    // Versions
-    if (args.node_version === "all") {
-      const toRemove = 5;
-      while (true) {
-        if (data.length <= 0) break;
-        for (const arch of archs) {
-          const versions = data.slice(0, toRemove);
-          const { binTar, deb } = archFind.find(a => a.deb === arch);
-          const downloads = await (await Promise.all(versions.map(version => downloadTar(version, binTar)))).filter(a => !!a);
-          await Promise.all(downloads.map(ext => extractTar(ext.tarPath, path.join(tmpPath, `nodejs_${ext.Version}_${ext.arch}`)).then(to => createDeb(ext.Version, deb, to).then(async deb => {
-            console.log(`Created "${deb}"`);
-            if (!!args.ci) return {
-              data: await uploadReleaseFile(deb),
-              file: deb
-            };
-            return {
-              data: undefined,
-              file: deb
-            };
-          }))));
-        }
-        data = data.slice(toRemove);
-      }
-    } else {
-      await Promise.all(archs.map(arch => downloadTar(args.node_version, archFind.find(a => a.deb === arch).binTar).then(ext => extractTar(ext.tarPath, path.join(tmpPath, `nodejs_${ext.Version}_${ext.arch}`)).then(to => createDeb(ext.Version, archFind.find(a => a.deb === arch).deb, to).then(deb => {
-        console.log(`Created "${deb}"`);
-        return deb;
-      })).catch(err => console.log(`Error on create deb for "${args.node_version}", error:\n${err}`)))));
+const getNodeVersions = () => getBuffer("https://nodejs.org/dist/index.json").then(res => JSON.parse(res.toString())) as Promise<Array<{
+  version: string
+  date: string
+  files: Array<string>
+  npm?: string
+  v8: string
+  uv?: string
+  zlib?: string
+  openssl?: string
+  modules?: string
+  lts: Boolean|string
+  security: boolean
+}>>;
+
+const Yargs = yargs(process.argv.slice(2)).command("docker", "Build with Docker and create DEB file", async yargs => {
+  const nodejsVersionsPrebuild = await getNodeVersions();
+  const {arch, version, token} = yargs.option("arch", {
+    demandOption: false,
+    describe: "Architecture to build and create DEB file",
+    choices: ["amd64", "arm64", "armhf", "i386", "ppc64le", "s390x", "all"],
+    default: "all",
+    type: "string"
+  }).option("token", {
+    demandOption: false,
+    describe: "Github Personal Access Token to upload DEB file",
+    alias: "t",
+    type: "string"
+  }).option("version", {
+    demandOption: false,
+    describe: "Node.js version to build and create DEB file",
+    default: nodejsVersionsPrebuild[0].version,
+    alias: "v",
+    type: "string"
+  }).parseSync();
+  const reGex = new RegExp(`^${version.startsWith("v")?"":"v"}${version.replace(".x", ".*")}`);
+  const VersionsSearched = nodejsVersionsPrebuild.filter(nodejsVersion => reGex.test(nodejsVersion.version));
+  if (VersionsSearched.length === 0) {
+    console.log("Version not found");
+    return;
+  }
+  const archs = arch === "all" ? ["amd64", "arm64", "armhf", "i386", "ppc64le", "s390x"] : [arch];
+  for (const nodejsVersion of VersionsSearched.map(x => x.version)) {
+    for (const arch of archs) {
+      console.log("Building Node.js\nversion: %s\nto arch: %s\n\n", nodejsVersion, arch);
+      const { deb, dockerPlatform } = archFind.find(a => a.deb === arch);
+      // Build tar
+      const tarFolder = path.join(tmpPath, `nodejs_${nodejsVersion}_${deb}`);
+      child_process.execFileSync("docker", ["buildx", "build", ".", "--platform="+dockerPlatform, "--build-arg", `NODE_VERSION=${nodejsVersion}`, "--output="+tarFolder], {stdio: "inherit"});
+      const DebFilePath = await extractTar(path.join(tarFolder, "node.tar.gz"), path.join(tarFolder, "deb")).then(to => createDeb(nodejsVersion, deb, to))
+      // Upload to Github Releases
+      console.log("\n************\n");
+      if (token) {
+        console.log("Uploading to Github Releases and delete file");
+        await uploadReleaseFile(token, DebFilePath, `nodejs_${deb}.deb`, nodejsVersion);
+        console.log("Uploaded \"%s\" to Github Releases", DebFilePath);
+        await fsPromise.rm(DebFilePath);
+      } else console.log("Path file: \"%s\"", DebFilePath);
+      console.log("\n");
     }
-  });
+  }
+}).command("static", "Get static files and create DEB file", async yargs => {
+  const nodejsVersionsPrebuild = await getNodeVersions();
+  const { arch, ci, node_version } = yargs.option("ci", {
+    demandOption: false,
+    describe: "Upload to Github Releases",
+    default: "",
+    alias: "c"
+  }).options("arch", {
+    demandOption: false,
+    describe: "The architecture of the package",
+    default: "all",
+    choices: ["amd64", "arm64", "armhf", "i386", "ppc64le", "s390x", "all"],
+    alias: "a",
+  }).option("node_version", {
+    demandOption: false,
+    describe: "The version of the package",
+    default: "latest",
+    alias: "n",
+  }).parseSync();
+  let Ver = nodejsVersionsPrebuild[0].version;
+  if (!(/latest|current/.test(node_version))) {
+    const reGex = new RegExp(`^${node_version.replace(".x", ".*")}`);
+    const versionsFilted = nodejsVersionsPrebuild.filter(nodejsVersion => reGex.test(nodejsVersion.version));
+    if (versionsFilted.length === 0) {
+      console.log("No version found");
+      return;
+    }
+    Ver = versionsFilted[0].version;
+  }
+  const archs = arch === "all" ? ["amd64", "arm64", "armhf", "i386", "ppc64le", "s390x"] : [arch];
+  for (const arch of archs) {
+    const { binTar, deb } = archFind.find(a => a.deb === arch);
+    // Download tar
+    const DebFilePath = await downloadTar(Ver, binTar).then(ext => extractTar(ext.tarPath, path.join(tmpPath, `nodejs_${ext.Version}_${ext.arch}`)).then(to => createDeb(ext.Version, deb, to)));
+    // Upload to Github Releases
+    if (ci) {
+      console.log("Uploading to Github Releases and delete file");
+      await uploadReleaseFile(ci, DebFilePath, `nodejs_${deb}.deb`, Ver);
+      console.log("Uploaded \"%s\" to Github Releases", DebFilePath);
+      await fsPromise.rm(DebFilePath);
+    } else console.log("Path file: \"%s\"", DebFilePath);
+  }
+}).version(false).command({command: "*", handler: () => {Yargs.showHelp();}});
+Yargs.parseAsync().then(() => process.exit(0));

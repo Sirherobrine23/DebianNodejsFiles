@@ -1,7 +1,7 @@
 type extraConfig = {
   packageName: string;
   Version: string|Array<number|string>;
-  arch: "amd64"|"arm64"|"armhf"|"ppc64el"|"s390x";
+  arch: "amd64"|"arm64"|"armhf"|"armel"|"ppc64el"|"s390x";
   Maintainer: string;
   Depends?: Array<{Package: string; minVersion?: string;}>;
   Conflicts?: Array<{Package: string;}>;
