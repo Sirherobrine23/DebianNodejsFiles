@@ -21,9 +21,9 @@ jobs:
           - s390x
         version:
           - "18.x"
-          - "17.x"
+          #- "17.x"
           - "16.x"
-          - "15.x"
+          #- "15.x"
     name: "Build, Node: ${{ matrix.version }}, Arch: ${{ matrix.arch }}"
     steps:
       # Get code
