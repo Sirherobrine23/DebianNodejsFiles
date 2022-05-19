@@ -1,5 +1,6 @@
 {
   "recommendations": [
-    "euskadi31.json-pretty-printer"
+    "euskadi31.json-pretty-printer",
+    "christian-kohler.path-intellisense"
   ]
 }

@@ -143,9 +143,9 @@ const Yargs = yargs(process.argv.slice(2)).command("clear", "Clear temp dir", ()
       console.log("\n************\n");
       if (token) {
         console.log("Uploading to Github Releases and delete file");
-        await uploadReleaseFile(token, DebFilePath, `nodejs_${deb}.deb`, nodejsVersion).then(() => console.log("Uploaded \"%s\" to Github Releases", DebFilePath));
-        await fsPromise.rm(DebFilePath);
-      } else console.log("Path file: \"%s\"", DebFilePath);
+        const dataUpload = await uploadReleaseFile(token, DebFilePath, `nodejs_${deb}.deb`, nodejsVersion).then(() => console.log("Uploaded \"%s\" to Github Releases", DebFilePath));
+        console.log("Upload res:\n%o", data);
+      } else console.log("Path file: \"%s\"", dataUpload);
       console.log("\n");
     }
   }
