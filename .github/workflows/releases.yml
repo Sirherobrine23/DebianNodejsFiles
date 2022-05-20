@@ -48,4 +48,11 @@ jobs:
 
       # Build bin
       - name: Build packages
-        run: npm run start -- docker --arch "${{ matrix.arch }}" --version "${{ matrix.version }}" --token "${{ secrets.GITHUB_TOKEN }}"
+        run: npm run start -- docker --arch "${{ matrix.arch }}" --version "${{ matrix.version }}"
+
+      - name: Upload debian package file
+        uses: actions/upload-artifact@v3
+        with:
+          name: "nodejs_${{ matrix.arch }}_${{ matrix.version }}"
+          path: "*.deb"
+
