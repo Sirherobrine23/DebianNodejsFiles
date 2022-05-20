@@ -16,7 +16,7 @@ jobs:
           - amd64
           - arm64
           - armhf
-          - armel
+          # - armel
           - ppc64el
           - s390x
         version:

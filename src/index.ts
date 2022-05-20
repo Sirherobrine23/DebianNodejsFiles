@@ -131,7 +131,7 @@ const Yargs = yargs(process.argv.slice(2)).command("clear", "Clear temp dir", ()
     return;
   }
   const archs = arch === "all" ? archFind.map(x => x.deb) : [arch];
-  for (const nodejsVersion of VersionsSearched.map(x => x.version)) {
+  for (const nodejsVersion of VersionsSearched.map(x => x.version).slice(-1)) {
     for (const arch of archs) {
       console.log("Building Node.js\nversion: %s\nto arch: %s\n\n", nodejsVersion, arch);
       const { deb, dockerPlatform } = archFind.find(a => a.deb === arch);
