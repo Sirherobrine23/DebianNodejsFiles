@@ -196,15 +196,19 @@ const Yargs = yargs(process.argv.slice(2)).command("clear", "Clear temp dir", ()
       });
       console.log("Building target build");
       for (const arg of [[`-j${os.cpus().length*2}`], ["install", `PREFIX=${debFolder}/usr`]]) {
-        console.log("args: make", ...arg);
-        await toActions.runAsync({
-          command: "make",
-          args: arg
-        }, {
-          cwd: gitRepoPath,
-          env,
-          stdio: show_log_build ? "tty" : "ignore"
-        });
+        try {
+          await toActions.runAsync({
+            command: "make",
+            args: arg
+          }, {
+            cwd: gitRepoPath,
+            env,
+            stdio: show_log_build ? "tty" : "ignore"
+          });
+        } catch (err) {
+          console.log(err);
+          throw new Error("Build failed");
+        }
       }
       // Create deb file
       const DebFilePath = await createDeb(nodejsVersion, deb, debFolder);
