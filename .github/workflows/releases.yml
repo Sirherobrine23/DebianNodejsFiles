@@ -15,10 +15,10 @@ jobs:
         arch:
           - amd64
           - arm64
+          - ppc64el
           # - armhf
           # - armel
-          - ppc64el
-          - s390x
+          # - s390x
         version:
           - "18.x"
           #- "17.x"

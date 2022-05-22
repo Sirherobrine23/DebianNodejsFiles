@@ -151,7 +151,7 @@ const Yargs = yargs(process.argv.slice(2)).command("clear", "Clear temp dir", ()
         args: ["clone", "-b", nodejsVersion.trim(), "--single-branch", "--depth", "1", "https://github.com/nodejs/node.git", gitRepoPath]
       });
       // ./configure --prefix=/tmp/build
-      const args = ["--verbose", "--dest-os=linux"];
+      const args = ["--verbose", `--prefix=${debFolder}/usr`, "--dest-os=linux"];
       const env: {[key:string]: string} = {
         CXX_host: "g++",
         CC_host: "gcc"
@@ -163,13 +163,13 @@ const Yargs = yargs(process.argv.slice(2)).command("clear", "Clear temp dir", ()
         env.CC = "aarch64-linux-gnu-gcc"
         env.LD = "aarch64-linux-gnu-g++"
       } else if (arch === "armhf") {
-        args.push("--dest-cpu=arm", "--without-snapshot");
+        args.push("--dest-cpu=arm", "--without-snapshot", "--with-arm-float-abi=softpf");
         env.CXX = "arm-linux-gnueabihf-g++"
         env.CC = "arm-linux-gnueabihf-gcc"
         env.AR = "arm-linux-gnueabihf-ar"
         env.LINK = "arm-linux-gnueabihf-g++"
       } else if (arch === "armel") {
-        args.push("--dest-cpu=arm", "--without-snapshot");
+        args.push("--dest-cpu=arm", "--without-snapshot", "--with-arm-float-abi=softpf");
         env.CXX = "arm-linux-gnueabi-g++"
         env.CC = "arm-linux-gnueabi-gcc"
         env.AR = "arm-linux-gnueabi-ar"
@@ -186,10 +186,7 @@ const Yargs = yargs(process.argv.slice(2)).command("clear", "Clear temp dir", ()
       if (arch === "arm64"||arch === "armhf"||arch === "armel"||arch === "ppc64le"||arch === "s390x") args.push("--cross-compiling");
       await toActions.runAsync({
         command: "./configure",
-        args: [
-          `--prefix=${debFolder}/usr`,
-          ...args
-        ]
+        args: args
       }, {
         cwd: gitRepoPath,
         env
