@@ -139,9 +139,10 @@ const Yargs = yargs(process.argv.slice(2)).command("clear", "Clear temp dir", ()
       console.log("Building Node.js\nversion: %s\nto arch: %s\n\n", nodejsVersion, arch);
       const { deb } = archFind.find(a => a.deb === arch);
       const gitRepoPath = path.join(os.tmpdir(), `nodejs_${nodejsVersion.replace(/\./gi, "_")}_${deb}`);
+      if (fs.existsSync(gitRepoPath)) await fsPromise.rm(gitRepoPath, {recursive: true, force: true});
       const debFolder = path.join(tmpPath, `DebNodejs_${nodejsVersion.replace(/\./gi, "_")}_${deb}`);
-      if (fs.existsSync(debFolder)) fs.rmSync(debFolder, {recursive: true, force: true});
-      fs.mkdirSync(debFolder, {recursive: true});
+      if (fs.existsSync(debFolder)) await fsPromise.rm(debFolder, {recursive: true, force: true});
+      await fsPromise.mkdir(debFolder, {recursive: true});
       await toActions.install(deb as any);
       await toActions.debianInstallPackages(["curl", "wget", "git", "python3", "g++", "make", "python3-pip", "tar"]);
       // Clone repo
