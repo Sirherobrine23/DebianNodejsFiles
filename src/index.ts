@@ -156,30 +156,34 @@ const Yargs = yargs(process.argv.slice(2)).command("clear", "Clear temp dir", ()
         CXX_host: "g++",
         CC_host: "gcc"
       };
-
+      console.log("Configuring target build");
       if (arch === "arm64") {
-        args.push("--cross-compiling", "--with-arm-float-abi=hard", "--with-arm-fpu=neon", "--dest-cpu=arm64");
+        args.push("--with-arm-float-abi=hard", "--with-arm-fpu=neon", "--dest-cpu=arm64");
         env.CXX = "aarch64-linux-gnu-g++"
         env.CC = "aarch64-linux-gnu-gcc"
         env.LD = "aarch64-linux-gnu-g++"
       } else if (arch === "armhf") {
-        args.push("--cross-compiling", "--dest-cpu=arm");
+        args.push("--dest-cpu=arm", "--without-snapshot");
         env.CXX = "arm-linux-gnueabihf-g++"
         env.CC = "arm-linux-gnueabihf-gcc"
+        env.AR = "arm-linux-gnueabihf-ar"
+        env.LINK = "arm-linux-gnueabihf-g++"
       } else if (arch === "armel") {
-        args.push("--cross-compiling", "--dest-cpu=arm");
+        args.push("--dest-cpu=arm", "--without-snapshot");
         env.CXX = "arm-linux-gnueabi-g++"
         env.CC = "arm-linux-gnueabi-gcc"
+        env.AR = "arm-linux-gnueabi-ar"
+        env.LINK = "arm-linux-gnueabi-g++"
       } else if (arch === "ppc64le") {
-        args.push("--cross-compiling", "--with-ppc-float=hard", "--dest-cpu=ppc64");
+        args.push("--with-ppc-float=hard", "--dest-cpu=ppc64");
         env.CXX = "powerpc64le-linux-gnu-g++"
         env.CC = "powerpc64le-linux-gnu-gcc"
       } else if (arch === "s390x") {
-        args.push("--cross-compiling", "--dest-cpu=s390x");
+        args.push("--dest-cpu=s390x");
         env.CXX = "s390x-linux-gnu-g++"
         env.CC = "s390x-linux-gnu-gcc"
       }
-      console.log("Configuring target build");
+      if (arch === "arm64"||arch === "armhf"||arch === "armel"||arch === "ppc64le"||arch === "s390x") args.push("--cross-compiling");
       await toActions.runAsync({
         command: "./configure",
         args: [
