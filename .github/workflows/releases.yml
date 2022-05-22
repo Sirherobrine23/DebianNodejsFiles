@@ -16,7 +16,7 @@ jobs:
           - amd64
           - arm64
           - armhf
-          # - armel
+          - armel
           - ppc64el
           - s390x
         version:
@@ -36,23 +36,15 @@ jobs:
         with:
           node-version: current
 
-      # Setup buildx
-      - name: Setup buildx
-        run: |
-          sudo apt update
-          sudo apt install -y qemu-user-static
-          docker buildx create --use
-
       # Install dependencies
       - run: npm ci
 
       # Build bin
       - name: Build packages
-        run: npm run start -- docker --arch "${{ matrix.arch }}" --version "${{ matrix.version }}"
+        run: npm run start -- build --arch "${{ matrix.arch }}" --version "${{ matrix.version }}" -s true
 
       - name: Upload debian package file
         uses: actions/upload-artifact@v3
         with:
           name: "nodejs_${{ matrix.arch }}_${{ matrix.version }}"
           path: "*.deb"
-

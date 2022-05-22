@@ -1,6 +1,8 @@
 import fs, {promises as fsPromise} from "fs";
 import path from "path";
 import child_process from "child_process";
+import os from "os";
+import * as toActions from "./actionsInstall";
 import yargs from "yargs";
 import tar from "tar";
 import { getBuffer, uploadRelease } from "./httpRequest";
@@ -104,18 +106,13 @@ const getNodeVersions = () => getBuffer("https://nodejs.org/dist/index.json").th
   security: boolean
 }>>;
 
-const Yargs = yargs(process.argv.slice(2)).command("clear", "Clear temp dir", () => fsPromise.rm(tmpPath, {recursive: true, force: true})).command("docker", "Build with Docker and create DEB file", async yargs => {
+const Yargs = yargs(process.argv.slice(2)).command("clear", "Clear temp dir", () => fsPromise.rm(tmpPath, {recursive: true, force: true})).command("build", "Build with Docker and create DEB file", async yargs => {
   const nodejsVersionsPrebuild = await getNodeVersions();
-  const {arch, version, token} = yargs.option("arch", {
+  const {arch, version, show_log_build} = yargs.option("arch", {
     demandOption: false,
     describe: "Architecture to build and create DEB file",
     choices: [...(archFind.map(x => x.deb)), "all"],
     default: "all",
-    type: "string"
-  }).option("token", {
-    demandOption: false,
-    describe: "Github Personal Access Token to upload DEB file",
-    alias: "t",
     type: "string"
   }).option("version", {
     demandOption: false,
@@ -123,6 +120,12 @@ const Yargs = yargs(process.argv.slice(2)).command("clear", "Clear temp dir", ()
     default: nodejsVersionsPrebuild[0].version,
     alias: "v",
     type: "string"
+  }).option("show_log_build", {
+    demandOption: false,
+    describe: "??",
+    default: false,
+    alias: "s",
+    type: "boolean"
   }).parseSync();
   const reGex = new RegExp(`^${version.startsWith("v")?"":"v"}${version.replace(".x", ".*")}`);
   const VersionsSearched = nodejsVersionsPrebuild.filter(nodejsVersion => reGex.test(nodejsVersion.version));
@@ -134,19 +137,79 @@ const Yargs = yargs(process.argv.slice(2)).command("clear", "Clear temp dir", ()
   for (const nodejsVersion of VersionsSearched.map(x => x.version).slice(-1)) {
     for (const arch of archs) {
       console.log("Building Node.js\nversion: %s\nto arch: %s\n\n", nodejsVersion, arch);
-      const { deb, dockerPlatform } = archFind.find(a => a.deb === arch);
-      // Build tar
-      const tarFolder = path.join(tmpPath, `nodejs_${nodejsVersion}_${deb}`);
-      child_process.execFileSync("docker", ["buildx", "build", ".", "--platform="+dockerPlatform, "--build-arg", `NODE_VERSION=${nodejsVersion}`, "--output="+tarFolder], {stdio: "inherit"});
-      const DebFilePath = await extractTar(path.join(tarFolder, "node.tar.gz"), path.join(tarFolder, "deb")).then(to => createDeb(nodejsVersion, deb, to))
+      const { deb } = archFind.find(a => a.deb === arch);
+      const gitRepoPath = path.join(tmpPath, `nodejs_${nodejsVersion}_${deb}`);
+      const debFolder = path.join(tmpPath, `DebNodejs_${nodejsVersion}_${deb}`);
+      await toActions.install(deb as any);
+      await toActions.debianInstallPackages(["curl", "wget", "git", "python3", "g++", "make", "python3-pip", "tar"]);
+      // Clone repo
+      await toActions.runAsync({
+        command: "git",
+        args: ["clone", "-b", nodejsVersion.trim(), "--single-branch", "--depth", "1", "https://github.com/nodejs/node.git", gitRepoPath]
+      });
+      // ./configure --prefix=/tmp/build
+      const args = [];
+      const env: {[key:string]: string} = {};
+      if (arch === "arm64") {
+        args.push("--cross-compiling", "--dest-os=linux", "--with-arm-float-abi=hard", "--with-arm-fpu=neon");
+        env.CXX_host = "g++"
+        env.CC_host = "gcc"
+        env.CXX = "aarch64-linux-gnu-g++"
+        env.CC = "aarch64-linux-gnu-gcc"
+      } else if (arch === "armhf") {
+        args.push("--cross-compiling", "--dest-os=linux", "--with-arm-float-abi=hard", "--with-arm-fpu=neon");
+        env.CXX_host = "g++"
+        env.CC_host = "gcc"
+        env.CXX = "arm-linux-gnueabihf-g++"
+        env.CC = "arm-linux-gnueabihf-gcc"
+      } else if (arch === "armel") {
+        args.push("--cross-compiling", "--dest-os=linux", "--with-arm-float-abi=hard", "--with-arm-fpu=neon");
+        env.CXX_host = "g++"
+        env.CC_host = "gcc"
+        env.CXX = "arm-linux-gnueabi-g++"
+        env.CC = "arm-linux-gnueabi-gcc"
+      } else if (arch === "ppc64le") {
+        args.push("--cross-compiling", "--dest-os=linux", "--with-ppc-float=hard");
+        env.CXX_host = "g++"
+        env.CC_host = "gcc"
+        env.CXX = "powerpc64le-linux-gnu-g++"
+        env.CC = "powerpc64le-linux-gnu-gcc"
+      } else if (arch === "s390x") {
+        args.push("--cross-compiling", "--dest-os=linux", "--with-system-zlib");
+        env.CXX_host = "g++"
+        env.CC_host = "gcc"
+        env.CXX = "s390x-linux-gnu-g++"
+        env.CC = "s390x-linux-gnu-gcc"
+      }
+      console.log("Configuring target build");
+      await toActions.runAsync({
+        command: "./configure",
+        args: [
+          `--prefix=${debFolder}/usr`,
+          ...args
+        ]
+      }, {
+        cwd: gitRepoPath,
+        env
+      });
+      console.log("Building target build");
+      for (const arg of [[`-j${os.cpus().length - 1}`], ["install", `PREFIX=${debFolder}/usr`]]) {
+        console.log("args: make", ...arg);
+        await toActions.runAsync({
+          command: "make",
+          args: arg
+        }, {
+          cwd: gitRepoPath,
+          env,
+          stdio: show_log_build ? "tty" : "ignore"
+        });
+      }
+      // Create deb file
+      const DebFilePath = await createDeb(nodejsVersion, deb, debFolder);
       // Upload to Github Releases
       console.log("\n************\n");
-      if (token) {
-        console.log("Uploading to Github Releases and delete file");
-        const dataUpload = await uploadReleaseFile(token, DebFilePath, `nodejs_${deb}.deb`, nodejsVersion).then(() => console.log("Uploaded \"%s\" to Github Releases", DebFilePath));
-        console.log("Upload res:\n%o", dataUpload);
-      } else console.log("Path file: \"%s\"", DebFilePath);
-      console.log("\n");
+      console.log("Path file: \"%s\"", DebFilePath);
+      console.log("\n************\n");
     }
   }
 }).command("static", "Get static files and create DEB file", async yargs => {
@@ -192,4 +255,7 @@ const Yargs = yargs(process.argv.slice(2)).command("clear", "Clear temp dir", ()
     } else console.log("Path file: \"%s\"", DebFilePath);
   }
 }).version(false).command({command: "*", handler: () => {Yargs.showHelp();}});
-Yargs.parseAsync().then(() => process.exit(0));
+Yargs.parseAsync().then(() => process.exit(0)).catch(err => {
+  console.error(err);
+  process.exit(1);
+});
