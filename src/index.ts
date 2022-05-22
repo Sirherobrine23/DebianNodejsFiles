@@ -138,8 +138,8 @@ const Yargs = yargs(process.argv.slice(2)).command("clear", "Clear temp dir", ()
     for (const arch of archs) {
       console.log("Building Node.js\nversion: %s\nto arch: %s\n\n", nodejsVersion, arch);
       const { deb } = archFind.find(a => a.deb === arch);
-      const gitRepoPath = path.join(tmpPath, `nodejs_${nodejsVersion}_${deb}`);
-      const debFolder = path.join(tmpPath, `DebNodejs_${nodejsVersion}_${deb}`);
+      const gitRepoPath = path.join(os.tmpdir(), `nodejs_${nodejsVersion.replace(/\./gi, "_")}_${deb}`);
+      const debFolder = path.join(tmpPath, `DebNodejs_${nodejsVersion.replace(/\./gi, "_")}_${deb}`);
       if (fs.existsSync(debFolder)) fs.rmSync(debFolder, {recursive: true, force: true});
       fs.mkdirSync(debFolder, {recursive: true});
       await toActions.install(deb as any);
