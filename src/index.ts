@@ -163,11 +163,11 @@ const Yargs = yargs(process.argv.slice(2)).command("clear", "Clear temp dir", ()
         env.CC = "aarch64-linux-gnu-gcc"
         env.LD = "aarch64-linux-gnu-g++"
       } else if (arch === "armhf") {
-        args.push("--cross-compiling", "--with-arm-float-abi=hard", "--with-arm-fpu=neon", "--dest-cpu=arm");
+        args.push("--cross-compiling", "--dest-cpu=arm");
         env.CXX = "arm-linux-gnueabihf-g++"
         env.CC = "arm-linux-gnueabihf-gcc"
       } else if (arch === "armel") {
-        args.push("--cross-compiling", "--with-arm-float-abi=hard", "--with-arm-fpu=neon", "--dest-cpu=arm");
+        args.push("--cross-compiling", "--dest-cpu=arm");
         env.CXX = "arm-linux-gnueabi-g++"
         env.CC = "arm-linux-gnueabi-gcc"
       } else if (arch === "ppc64le") {
