@@ -171,7 +171,7 @@ const Yargs = yargs(process.argv.slice(2)).command("clear", "Clear temp dir", ()
         env.CXX = "arm-linux-gnueabi-g++"
         env.CC = "arm-linux-gnueabi-gcc"
       } else if (arch === "ppc64le") {
-        args.push("--cross-compiling", "--with-ppc-float=hard", "--dest-cpu=ppc64");
+        args.push("--cross-compiling", "--with-ppc-float=hard", "--with-system-zlib", "--dest-cpu=ppc64");
         env.CXX = "powerpc64le-linux-gnu-g++"
         env.CC = "powerpc64le-linux-gnu-gcc"
       } else if (arch === "s390x") {
