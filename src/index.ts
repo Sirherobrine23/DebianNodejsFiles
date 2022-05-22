@@ -151,36 +151,31 @@ const Yargs = yargs(process.argv.slice(2)).command("clear", "Clear temp dir", ()
         args: ["clone", "-b", nodejsVersion.trim(), "--single-branch", "--depth", "1", "https://github.com/nodejs/node.git", gitRepoPath]
       });
       // ./configure --prefix=/tmp/build
-      const args = [];
-      const env: {[key:string]: string} = {};
+      const args = ["--verbose", "--dest-os=linux"];
+      const env: {[key:string]: string} = {
+        CXX_host: "g++",
+        CC_host: "gcc"
+      };
+
       if (arch === "arm64") {
-        args.push("--cross-compiling", "--dest-os=linux", "--with-arm-float-abi=hard", "--with-arm-fpu=neon");
-        env.CXX_host = "g++"
-        env.CC_host = "gcc"
+        args.push("--cross-compiling", "--with-arm-float-abi=hard", "--with-arm-fpu=neon", "--dest-cpu=arm64");
         env.CXX = "aarch64-linux-gnu-g++"
         env.CC = "aarch64-linux-gnu-gcc"
+        env.LD = "aarch64-linux-gnu-g++"
       } else if (arch === "armhf") {
-        args.push("--cross-compiling", "--dest-os=linux", "--with-arm-float-abi=hard", "--with-arm-fpu=neon");
-        env.CXX_host = "g++"
-        env.CC_host = "gcc"
+        args.push("--cross-compiling", "--with-arm-float-abi=hard", "--with-arm-fpu=neon", "--dest-cpu=arm");
         env.CXX = "arm-linux-gnueabihf-g++"
         env.CC = "arm-linux-gnueabihf-gcc"
       } else if (arch === "armel") {
-        args.push("--cross-compiling", "--dest-os=linux", "--with-arm-float-abi=hard", "--with-arm-fpu=neon");
-        env.CXX_host = "g++"
-        env.CC_host = "gcc"
+        args.push("--cross-compiling", "--with-arm-float-abi=hard", "--with-arm-fpu=neon", "--dest-cpu=arm");
         env.CXX = "arm-linux-gnueabi-g++"
         env.CC = "arm-linux-gnueabi-gcc"
       } else if (arch === "ppc64le") {
-        args.push("--cross-compiling", "--dest-os=linux", "--with-ppc-float=hard");
-        env.CXX_host = "g++"
-        env.CC_host = "gcc"
+        args.push("--cross-compiling", "--with-ppc-float=hard", "--dest-cpu=ppc64");
         env.CXX = "powerpc64le-linux-gnu-g++"
         env.CC = "powerpc64le-linux-gnu-gcc"
       } else if (arch === "s390x") {
-        args.push("--cross-compiling", "--dest-os=linux", "--with-system-zlib");
-        env.CXX_host = "g++"
-        env.CC_host = "gcc"
+        args.push("--cross-compiling", "--with-system-zlib", "--dest-cpu=s390x");
         env.CXX = "s390x-linux-gnu-g++"
         env.CC = "s390x-linux-gnu-gcc"
       }
@@ -196,7 +191,7 @@ const Yargs = yargs(process.argv.slice(2)).command("clear", "Clear temp dir", ()
         env
       });
       console.log("Building target build");
-      for (const arg of [[`-j${os.cpus().length*2}`], ["install", `PREFIX=${debFolder}/usr`]]) {
+      for (const arg of [[`-j${os.cpus().length}`], ["install", `PREFIX=${debFolder}/usr`]]) {
         try {
           await toActions.runAsync({
             command: "make",
@@ -207,7 +202,7 @@ const Yargs = yargs(process.argv.slice(2)).command("clear", "Clear temp dir", ()
             stdio: show_log_build ? "tty" : "ignore"
           });
         } catch (err) {
-          console.log(err);
+          console.log(err?.stderr||err?.stdout||err);
           throw new Error("Build failed");
         }
       }

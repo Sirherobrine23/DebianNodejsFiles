@@ -7,50 +7,13 @@ on:
     - cron: "0 0 * * *"
 
 jobs:
-  buildNodehost:
+  buildNode:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: true
-      matrix:
-        version:
-          - "18.x"
-          #- "17.x"
-          - "16.x"
-          #- "15.x"
-    name: "Build, Node: ${{ matrix.version }}, Arch: ${{ matrix.arch }}"
-    steps:
-      # Get code
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      # Setup node
-      - name: Setup nodejs
-        uses: actions/setup-node@v3
-        with:
-          node-version: current
-
-      # Install dependencies
-      - run: npm ci
-
-      # Build bin
-      - name: Build packages
-        run: npm run start -- build --version "${{ matrix.version }}" -s true
-
-      - name: Upload debian package file
-        uses: actions/upload-artifact@v3
-        with:
-          name: "nodejs_${{ runner.arch }}_${{ matrix.version }}"
-          path: "*.deb"
-
-  # Crosscompile nodejs
-  buildNodecros:
-    runs-on: ubuntu-latest
-    needs:
-      - buildNodehost
     strategy:
       fail-fast: true
       matrix:
         arch:
+          - amd64
           - arm64
           - armhf
           - armel
@@ -78,7 +41,7 @@ jobs:
 
       # Build bin
       - name: Build packages
-        run: npm run start -- build --arch "${{ matrix.arch }}" --version "${{ matrix.version }}" -s true
+        run: npm run start -- build --arch "${{ matrix.arch }}" --version "${{ matrix.version }}"
 
       - name: Upload debian package file
         uses: actions/upload-artifact@v3
