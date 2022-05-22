@@ -193,7 +193,7 @@ const Yargs = yargs(process.argv.slice(2)).command("clear", "Clear temp dir", ()
         env
       });
       console.log("Building target build");
-      for (const arg of [[`-j${os.cpus().length - 1}`], ["install", `PREFIX=${debFolder}/usr`]]) {
+      for (const arg of [[`-j${os.cpus().length*2}`], ["install", `PREFIX=${debFolder}/usr`]]) {
         console.log("args: make", ...arg);
         await toActions.runAsync({
           command: "make",

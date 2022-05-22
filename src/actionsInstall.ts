@@ -38,6 +38,7 @@ export function runAsync(commands: runCommand, options: runCommandOptions = {}):
 
 export async function debianInstallPackages(packages: Array<string>): Promise<void> {
   if (packages.length === 0) throw new Error("No packages to install");
+  await runAsync({command: "sudo", args: ["apt", "update"]});
   await runAsync({command: "sudo", args: ["apt", "install", "-y", ...packages]}, {
     env: {
       DEBIAN_FRONTEND: "noninteractive"
