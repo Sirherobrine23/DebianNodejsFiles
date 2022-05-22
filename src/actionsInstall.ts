@@ -45,27 +45,3 @@ export async function debianInstallPackages(packages: Array<string>): Promise<vo
     }
   });
 }
-
-export async function install(target: "amd64"|"arm64"|"armhf"|"armel"|"ppc64el"|"s390x"): Promise<void> {
-  if (process.arch === "x64") {
-    if (target === "amd64") {
-      return;
-    } else if (target === "arm64") {
-      await debianInstallPackages(["binutils-aarch64-linux-gnu", "gcc-aarch64-linux-gnu", "g++-aarch64-linux-gnu"]);
-      return;
-    } else if (target === "armhf") {
-      await debianInstallPackages(["binutils-arm-linux-gnueabihf", "gcc-arm-linux-gnueabihf", "g++-arm-linux-gnueabihf"]);
-      return;
-    } else if (target === "armel") {
-      await debianInstallPackages(["binutils-arm-linux-gnueabi", "gcc-arm-linux-gnueabi", "g++-arm-linux-gnueabi"]);
-      return;
-    } else if (target === "ppc64el") {
-      await debianInstallPackages(["binutils-powerpc-linux-gnu", "gcc-powerpc-linux-gnu", "g++-powerpc-linux-gnu"]);
-      return;
-    } else if (target === "s390x") {
-      await debianInstallPackages(["binutils-s390x-linux-gnu", "gcc-s390x-linux-gnu", "g++-s390x-linux-gnu"]);
-      return;
-    }
-  }
-  throw new Error("Unsupported architecture");
-}

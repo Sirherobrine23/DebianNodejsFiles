@@ -16,13 +16,13 @@ jobs:
           - amd64
           - arm64
           - ppc64el
-          # - armhf
-          # - armel
-          # - s390x
+          - armhf
+          - armel
+          - s390x
         version:
           - "18.x"
-          #- "17.x"
           - "16.x"
+          #- "17.x"
           #- "15.x"
     name: "Build, Node: ${{ matrix.version }}, Arch: ${{ matrix.arch }}"
     steps:
@@ -41,6 +41,7 @@ jobs:
 
       # Build bin
       - name: Build packages
+        continue-on-error: true
         run: npm run start -- build --arch "${{ matrix.arch }}" --version "${{ matrix.version }}"
 
       - name: Upload debian package file
