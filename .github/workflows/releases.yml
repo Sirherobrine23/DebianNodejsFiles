@@ -42,7 +42,7 @@ jobs:
       # Build bin
       - name: Build packages
         continue-on-error: true
-        run: npm run start -- build --arch "${{ matrix.arch }}" --version "${{ matrix.version }}"
+        run: npm run start -- static --arch "${{ matrix.arch }}" --version "${{ matrix.version }}"
 
       - name: Upload debian package file
         uses: actions/upload-artifact@v3
