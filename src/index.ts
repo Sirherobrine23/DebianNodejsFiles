@@ -5,7 +5,7 @@ import os from "os";
 import * as toActions from "./actionsInstall";
 import yargs from "yargs";
 import tar from "tar";
-import { getBuffer, uploadRelease } from "./httpRequest";
+import { getBuffer } from "./httpRequest";
 import createDebConfig from "./createDebConfig";
 
 const tmpPath = path.resolve(process.cwd(), "nodejs_tmp");
@@ -23,16 +23,15 @@ const archFind = [
 ];
 
 async function downloadTar(Version: string, arch: string) {
+  if (!/^v.*$/.test(Version)) Version = "v"+Version;
   console.log("Downloading tar to arch: %s, version: %s", arch, Version);
   const tarRoot = path.resolve(tmpPath, "tar_gz");
   if (fs.existsSync(tarRoot)) {
     fs.rmSync(tarRoot, { recursive: true, force: true });
     fs.mkdirSync(tarRoot, { recursive: true });
   } else fs.mkdirSync(tarRoot, { recursive: true });
-  const tarPath = path.join(tarRoot, `node-v${Version}-linux-${arch}.tar.gz`);
-  const data = await getBuffer(
-    `https://nodejs.org/download/release/v${Version}/node-v${Version}-linux-${arch}.tar.gz`
-  ).catch((err) => err);
+  const tarPath = path.join(tarRoot, `node-${Version}-linux-${arch}.tar.gz`);
+  const data = await getBuffer(`https://nodejs.org/download/release/${Version}/node-${Version}-linux-${arch}.tar.gz`);
   if (!Buffer.isBuffer(data)) return undefined;
   fs.writeFileSync(tarPath, data);
   return { tarPath, Version, arch };
@@ -129,28 +128,6 @@ async function createDeb(VERSION: string, debArch: string, tmpExtract: string) {
   });
   // fs.rmSync(storageRoot, {recursive: true, force: true});
   return debFilePath;
-}
-
-async function uploadReleaseFile(
-  Token: string,
-  file: string,
-  fileName: string,
-  tagName?: string
-) {
-  return await uploadRelease(
-    "Sirherobrine23",
-    "DebianNodejsFiles",
-    Token,
-    tagName ? tagName : "debs",
-    fs.readFileSync(file),
-    fileName
-  )
-    .then((res) => {
-      console.log('Uploaded "%s" to Github Release, url: "%s"', file, res.url);
-    })
-    .catch((err) =>
-      console.log(`Error on upload file "${file}", error:\n${err}`)
-    );
 }
 
 const getNodeVersions = () =>
@@ -328,13 +305,7 @@ const Yargs = yargs(process.argv.slice(2))
             "g++-s390x-linux-gnu",
           ]);
         }
-        if (
-          arch === "arm64" ||
-          arch === "armhf" ||
-          arch === "armel" ||
-          arch === "ppc64le" ||
-          arch === "s390x"
-        )
+        if (arch === "arm64" || arch === "armhf" || arch === "armel" || arch === "ppc64le" || arch === "s390x")
           args.push("--cross-compiling");
         await toActions.runAsync(
           {
@@ -379,13 +350,7 @@ const Yargs = yargs(process.argv.slice(2))
   })
   .command("static", "Get static files and create DEB file", async (yargs) => {
     const nodejsVersionsPrebuild = await getNodeVersions();
-    const { arch, ci, node_version } = yargs
-      .option("ci", {
-        demandOption: false,
-        describe: "Upload to Github Releases",
-        default: "",
-        alias: "c",
-      })
+    const { arch, node_version } = yargs
       .options("arch", {
         demandOption: false,
         describe: "The architecture of the package",
@@ -412,26 +377,16 @@ const Yargs = yargs(process.argv.slice(2))
       }
       Ver = versionsFilted[0].version;
     }
-    const archs =
-      arch === "all"
-        ? ["amd64", "arm64", "armhf", "i386", "ppc64le", "s390x"]
-        : [arch];
+    const archs = arch === "all" ? ["amd64", "arm64", "armhf", "i386", "ppc64le", "s390x"] : [arch];
     for (const arch of archs) {
       const { binTar, deb } = archFind.find((a) => a.deb === arch);
       // Download tar
-      const DebFilePath = await downloadTar(Ver, binTar).then((ext) =>
-        extractTar(
-          ext.tarPath,
-          path.join(tmpPath, `nodejs_${ext.Version}_${ext.arch}`)
-        ).then((to) => createDeb(ext.Version, deb, to))
-      );
-      // Upload to Github Releases
-      if (ci) {
-        console.log("Uploading to Github Releases and delete file");
-        await uploadReleaseFile(ci, DebFilePath, `nodejs_${deb}.deb`, Ver);
-        console.log('Uploaded "%s" to Github Releases', DebFilePath);
-        await fsPromise.rm(DebFilePath);
-      } else console.log('Path file: "%s"', DebFilePath);
+      const tarInfo = await downloadTar(Ver, binTar);
+      console.log(tarInfo);
+      const tarFolder = await extractTar(tarInfo.tarPath, path.join(tmpPath, `nodejs_${tarInfo.Version}_${tarInfo.arch}`));
+      console.log(tarFolder);
+      const DebFilePath = await createDeb(tarInfo.Version, deb, tarFolder);
+      console.log('Path file: "%s"', DebFilePath);
     }
   })
   .version(false)
@@ -444,6 +399,6 @@ const Yargs = yargs(process.argv.slice(2))
 Yargs.parseAsync()
   .then(() => process.exit(0))
   .catch((err) => {
-    console.error(err);
+    console.error(String(err));
     process.exit(1);
   });
