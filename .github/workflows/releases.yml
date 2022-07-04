@@ -49,3 +49,11 @@ jobs:
         with:
           name: "nodejs_${{ matrix.arch }}_${{ matrix.version }}"
           path: "*.deb"
+
+      - name: "Upload with tag: Samaritan_${{ github.run_id }}"
+        uses: softprops/action-gh-release@v1
+        with:
+          name: nodejs
+          tag_name: "nodejs_${{ github.run_id }}"
+          body: "None"
+          files: "*.deb"

@@ -385,6 +385,13 @@ const Yargs = yargs(process.argv.slice(2))
       console.log(tarInfo);
       const tarFolder = await extractTar(tarInfo.tarPath, path.join(tmpPath, `nodejs_${tarInfo.Version}_${tarInfo.arch}`));
       console.log(tarFolder);
+      const r = path.join(tarFolder, fs.readdirSync(tarFolder)[0]);
+      const ignoreFiles = ['CHANGELOG.md', 'LICENSE', 'README.md']
+      for (const fileF of fs.readdirSync(r)) {
+        if (ignoreFiles.includes(fileF)) continue;
+        fs.renameSync(path.join(r, fileF), path.join(tarFolder, fileF));
+      }
+      fs.rmSync(r, {recursive: true});
       const DebFilePath = await createDeb(tarInfo.Version, deb, tarFolder);
       console.log('Path file: "%s"', DebFilePath);
     }
