@@ -49,3 +49,12 @@ jobs:
         with:
           name: "nodejs_${{ matrix.arch }}_${{ matrix.version }}"
           path: "*.deb"
+
+      - name: "Upload to release"
+        uses: softprops/action-gh-release@v1
+        continue-on-error: true
+        with:
+          name: debs
+          tag_name: "debs"
+          body: "None"
+          files: "*.deb"
