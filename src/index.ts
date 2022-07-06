@@ -9,8 +9,7 @@ import { getBuffer } from "./httpRequest";
 import createDebConfig from "./createDebConfig";
 
 const tmpPath = path.resolve(process.cwd(), "nodejs_tmp");
-if (fs.existsSync(tmpPath))
-  fs.rmSync(tmpPath, { recursive: true, force: true });
+if (fs.existsSync(tmpPath)) fs.rmSync(tmpPath, { recursive: true, force: true });
 fs.mkdirSync(tmpPath, { recursive: true });
 
 const archFind = [
@@ -39,13 +38,13 @@ async function downloadTar(Version: string, arch: string) {
 
 async function extractTar(tarFile: string, to: string) {
   console.log("Extracting tar: %s, to: %s", tarFile, to);
-  if (fs.existsSync(to))
-    await fs.promises.rm(to, { recursive: true, force: true });
+  if (fs.existsSync(to)) await fs.promises.rm(to, { recursive: true, force: true });
   await fs.promises.mkdir(to, { recursive: true });
   await tar.x({
     file: tarFile,
-    Directory: true,
     cwd: to,
+    Directory: true,
+    preserveOwner: true,
   });
   await fs.promises.rm(tarFile);
   return to;
@@ -60,11 +59,11 @@ async function createDeb(VERSION: string, debArch: string, tmpExtract: string) {
   const usrPath = path.join(storageRoot, "usr");
   const debianPath = path.join(storageRoot, "DEBIAN");
   if (fs.existsSync(debFilePath)) return debFilePath;
-  if (fs.existsSync(storageRoot))
-    await fs.promises.rm(storageRoot, { recursive: true, force: true });
+  if (fs.existsSync(storageRoot)) await fs.promises.rm(storageRoot, { recursive: true, force: true });
   await fs.promises.mkdir(storageRoot, { recursive: true });
   await fs.promises.mkdir(usrPath, { recursive: true });
-  await fsPromise.cp(tmpExtract, usrPath, { recursive: true, force: true });
+  // @ts-ignore
+  await fs.promises.cp(tmpExtract, usrPath, { recursive: true, force: true, preserveTimestamps: true, verbatimSymlinks: true });
   await fs.promises.rm(tmpExtract, { recursive: true, force: true });
   // Create DEBIAN folder
   if (!fs.existsSync(debianPath)) fs.mkdirSync(debianPath, { recursive: true });
@@ -115,7 +114,9 @@ async function createDeb(VERSION: string, debArch: string, tmpExtract: string) {
       { Package: "npm" },
     ],
   });
+  await fs.promises.chmod(debianPath, "0755");
   fs.writeFileSync(path.join(debianPath, "control"), controlFile);
+  await fs.promises.chmod(path.join(debianPath, "control"), "0755");
   await new Promise((res, rej) => {
     const proc = child_process.execFile(
       "dpkg-deb",
@@ -385,14 +386,13 @@ const Yargs = yargs(process.argv.slice(2))
       console.log(tarInfo);
       const tarFolder = await extractTar(tarInfo.tarPath, path.join(tmpPath, `nodejs_${tarInfo.Version}_${tarInfo.arch}`));
       console.log(tarFolder);
-      const r = path.join(tarFolder, fs.readdirSync(tarFolder)[0]);
+      const realNodeFolder = path.join(tarFolder, fs.readdirSync(tarFolder)[0]);
       const ignoreFiles = ['CHANGELOG.md', 'LICENSE', 'README.md']
-      for (const fileF of fs.readdirSync(r)) {
-        if (ignoreFiles.includes(fileF)) continue;
-        fs.cpSync(path.join(r, fileF), path.join(tarFolder, fileF), {recursive: true});
+      for (const fileF of fs.readdirSync(realNodeFolder)) {
+        if (ignoreFiles.includes(fileF)) await fsPromise.rm(path.join(realNodeFolder, fileF));
       }
-      fs.rmSync(r, {recursive: true});
-      const DebFilePath = await createDeb(tarInfo.Version, deb, tarFolder);
+      // console.log(createDeb, deb)
+      const DebFilePath = await createDeb(tarInfo.Version, deb, realNodeFolder);
       console.log('Path file: "%s"', DebFilePath);
     }
   })
